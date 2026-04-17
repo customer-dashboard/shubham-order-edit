@@ -1,0 +1,98 @@
+# Learn more about configuring your Customer account UI extension:
+# https://shopify.dev/api/customer-account-ui-extensions/unstable/configuration
+
+# The version of APIs your extension will receive. Learn more:
+# https://shopify.dev/docs/api/usage/versioning
+api_version = "2025-10"
+
+[[extensions]]
+name = "Order Editing"
+handle = "order-edit"
+type = "ui_extension"
+uid = "68e57ed1-50da-5595-4f36-f6d3078a3347b7f6f39c"
+
+# Controls where in Shopify your extension will be injected,
+# and the file that contains your extension’s source code. Learn more:
+# https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/extension-targets-overview
+
+[[extensions.targeting]]
+module = "./src/OrderStatusBlock.jsx"
+target = "customer-account.order-status.block.render"
+default_placement = "ORDER_STATUS1"
+
+
+[extensions.settings]
+
+    [[extensions.settings.fields]]
+        key = "edit_shipping_address"
+        type = "boolean"
+        name = "Edit shipping address"
+        description = "Show / Hide edit shipping address"
+
+    [[extensions.settings.fields]]
+        key = "edit_phone_number"
+        type = "boolean"
+        name = "Edit phone number (order)"
+        description = "Show / Hide Edit phone number (order)"
+
+    [[extensions.settings.fields]]
+        key = "show_line_items"
+        type = "boolean"
+        name = "Show line items"
+        description = "Show / Hide Order line items"
+
+    [[extensions.settings.fields]]
+        key = "update_quantity"
+        type = "boolean"
+        name = "Update line item quantity"
+        description = "Show / Hide quantity button on order line item"
+
+    [[extensions.settings.fields]]
+        key = "replace_line_item"
+        type = "boolean"
+        name = "Replace Line Item"
+        description = "Show / Hide replace button on order line item"
+
+    [[extensions.settings.fields]]
+        key = "remove_line_item"
+        type = "boolean"
+        name = "Remove Line Item"
+        description = "Show / Hide remove button on order line item"
+
+    [[extensions.settings.fields]]
+        key = "add_product"
+        type = "boolean"
+        name = "Add product"
+        description = "Show / Hide Add product"
+
+    [[extensions.settings.fields]]
+        key = "apply_discount"
+        type = "boolean"
+        name = "Apply discount field"
+        description = "Show / Hide Apply discount field"
+
+    [[extensions.settings.fields]]
+        key = "download_invoice"
+        type = "boolean"
+        name = "Download invoice"
+        description = "Show / Hide Download invoice"
+
+    [[extensions.settings.fields]]
+        key = "change_delivery_instruction"
+        type = "boolean"
+        name = "Change delivery instruction"
+        description = "Show / Hide Change delivery instruction"
+
+
+
+
+
+[extensions.capabilities]
+# Gives your extension access to directly query Shopify’s storefront API.
+# https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/configuration#api-access
+api_access = true
+
+# Gives your extension access to make external network calls, using the
+# JavaScript `fetch()` API. Learn more:
+# https://shopify.dev/docs/api/customer-account-ui-extensions/unstable/configuration#network-access
+network_access = true

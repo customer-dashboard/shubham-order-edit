@@ -3,12 +3,14 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "target": "ES2020",
-    "checkJs": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "allowJs": true,
-    "moduleResolution": "node",
+    "checkJs": true,
     "esModuleInterop": true,
     "noEmit": true,
+    "strict": true,
     "skipLibCheck": true
   },
-  "include": ["./src", "./shopify.d.ts"]
+  "include": ["./**/*"]
 }

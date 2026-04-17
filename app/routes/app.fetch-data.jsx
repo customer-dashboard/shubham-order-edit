@@ -6,14 +6,23 @@ export async function action({ request }) {
   const { admin, session } = await authenticate.admin(request);
   let status= 200;
   let data= [];
-  const { shop,accessToken } = session;
-  let shopName = shop.replace(".myshopify.com", "");
   const formValue = await request.formData();
   let _action = formValue.get("_action");
-  
+
   try {
       switch (_action) {
-        
+        case "GET_SHOP_NAME":
+          const shopResponse = await admin.graphql(`
+            query {
+              shop {
+                name
+              }
+            }
+          `);
+          const shopJson = await shopResponse.json();
+          data = { shop: shopJson?.data?.shop || null };
+          return { data, status };
+
         case "GET_LOCALS":
           const locals = await getStoreLanguages(admin.graphql);
           data = {locals:locals?.data,};
@@ -28,15 +37,13 @@ export async function action({ request }) {
             const allthemesStr = formValue.get("allthemes");
             let allthemesEC = [];
             try {
-                allthemesEC = JSON.parse(allthemesStr); 
+                allthemesEC = JSON.parse(allthemesStr);
             } catch (e) {
                 console.error("Invalid JSON in allthemes:", e);
             }
             const app_status = await getAppStatus(session,allthemesEC);
             // console.log("App status", app_status);
             return {app_status,status:200}
-
-          
         default:
           break;
         }
