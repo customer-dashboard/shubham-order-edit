@@ -3,20 +3,41 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
+import { getAppConfig } from "../server/graphql";
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { admin } = await authenticate.admin(request);
+  const url = new URL(request.url);
+  const resetOnboarding = url.searchParams.get("test") === "onobarding_reset";
+
+  let config = await getAppConfig(admin);
+
+  if (!config || resetOnboarding) {
+    config = {
+      onboarding: { step: 0, completed: false },
+      settings: {
+        edit_shipping_address: true,
+        edit_phone_number: true,
+        show_line_items: true,
+        update_quantity: true,
+        replace_line_item: true,
+        change_delivery_instruction: true,
+        apply_discount: false,
+        download_invoice: true
+      }
+    };
+  }
 
   // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    config
+  };
 };
 
 export default function App() {
-  const { apiKey } = useLoaderData();
-  const [allThemes, setAllThemes] = useState([]);
-  const [liveTheme, setLiveTheme] = useState([]);
-  const [enableTheme, setEnableTheme] = useState();
-  const [appStatusOnTheme, setAppStatusOnTheme] = useState(false);
+  const { apiKey, config: initialConfig } = useLoaderData();
+  const [config, setConfig] = useState(initialConfig);
   const [defSetting, setDefSetting] = useState([]);
   const [onBoarding, setOnBoarding] = useState(true);
   const [billingNew, setBillingNew] = useState([]);
@@ -25,19 +46,10 @@ export default function App() {
 
   useEffect(() => {
     getLocals();
-    getThemes();
-    app_status_on_theme();
     // Database();
     // customerStatus();
   }, []);
 
-  useEffect(() => {
-    app_status_on_theme();
-    // shopData();
-    if (!appStatusOnTheme) {
-      setEnableTheme(liveTheme);
-    }
-  }, [appStatusOnTheme, liveTheme]);
 
   const getLocals = async () => {
     let formdata = new FormData();
@@ -60,83 +72,19 @@ export default function App() {
     }
   };
 
-  const getThemes = async () => {
-    let formdata = new FormData();
-    formdata.append("_action", "GET_THEMES");
-    try {
-      const response = await fetch("/app/fetch-data", {
-        method: "POST",
-        body: formdata,
-      });
-      const responseJson = await response.json();
-      if (responseJson.status == 200) {
-        const { themes } = responseJson.data;
-        const allThemes = themes.themes.edges;
-        setAllThemes(allThemes);
-        allThemes.forEach((ele) => {
-          if (ele.node.role === "MAIN") {
-            setLiveTheme({
-              name: ele.node.name,
-              value: ele.node.id.replace(/^.*\//, ""),
-              role: ele.node.role,
-            });
-          }
-        });
-      }
-    } catch (error) {
-      console.error("An error occurred:", error.message);
-    }
-  };
-
-  const app_status_on_theme = async () => {
-    let formdata = new FormData();
-    formdata.append("_action", "app_status");
-    formdata.append("allthemes", JSON.stringify(allThemes));
-    const response = await fetch("/app/fetch-data", {
-      method: "POST",
-      body: formdata,
-    });
-    const responseJson = await response.json();
-    const enabledThemes = [];
-
-    responseJson?.app_status.forEach((ele) => {
-      if (ele.node.embed_status_disabled === false) {
-        const themeData = {
-          name: ele.node.name,
-          value: ele.node.id.replace(/^.*\//, ""),
-          role: ele.node.role,
-        };
-        enabledThemes.push(themeData);
-      }
-    });
-
-    if (enabledThemes.length > 0) {
-      setAppStatusOnTheme(true);
-      setEnableTheme(enabledThemes[0]);
-    }
-    return responseJson?.app_status;
-  };
 
 
   return (
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/" rel="home">
-          Dashboard
-        </s-link>
-        <s-link href="/plans">Plans</s-link>
-        <s-link href="/additional">Additional</s-link>
+        <s-link href="/" rel="home">Home</s-link>
       </s-app-nav>
       <Outlet
         context={{
-          allThemes,
           defSetting,
           setDefSetting,
-          enableTheme,
-          liveTheme,
-          onBoarding,
-          setOnBoarding,
-          appStatusOnTheme,
+          config,
+          setConfig,
           isShopifyPlus,
           billingNew,
           storeLanguages,

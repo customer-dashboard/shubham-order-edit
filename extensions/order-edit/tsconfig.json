@@ -3,14 +3,11 @@
     "jsx": "react-jsx",
     "jsxImportSource": "preact",
     "target": "ES2020",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowJs": true,
     "checkJs": true,
+    "allowJs": true,
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "noEmit": true,
-    "strict": true,
     "skipLibCheck": true
-  },
-  "include": ["./**/*"]
+  }
 }

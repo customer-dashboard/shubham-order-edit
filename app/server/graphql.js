@@ -166,3 +166,102 @@ export async function postMetafileds(admin, formValue, shop, accessToken) {
     // throw error;
   }
 }
+
+export async function getAppConfig(admin) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getShopMetafield {
+        shop {
+          id
+          metafield(namespace: "order_editing", key: "ord_edit_config") {
+            value
+          }
+        }
+      }`
+    );
+    const result = await response.json();
+    const value = result.data?.shop?.metafield?.value;
+    return value ? JSON.parse(value) : null;
+  } catch (error) {
+    console.error("Error fetching app config:", error);
+    return null;
+  }
+}
+
+export async function setAppConfig(admin, config) {
+  try {
+    const shopResponse = await admin.graphql(`{ shop { id } }`);
+    const shopData = await shopResponse.json();
+    const shopGid = shopData.data.shop.id;
+
+    const response = await admin.graphql(
+      `#graphql
+      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields {
+            key
+            namespace
+            value
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          metafields: [
+            {
+              key: "ord_edit_config",
+              namespace: "order_editing",
+              ownerId: shopGid,
+              type: "json",
+              value: JSON.stringify(config),
+            },
+          ],
+        },
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error setting app config:", error);
+    return { error: error.message };
+  }
+}
+
+export async function updateOrderAddress(admin, input) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation OrderUpdate($input: OrderInput!) {
+        orderUpdate(input: $input) {
+          order {
+            id
+            shippingAddress {
+              firstName
+              lastName
+              address1
+              address2
+              city
+              province
+              zip
+              country
+              phone
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      { variables: { input } },
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in updateOrderAddress utility:", error);
+    return { error: error.message };
+  }
+}
