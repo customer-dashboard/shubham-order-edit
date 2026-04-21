@@ -1,5 +1,5 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { getOrderDetails } from "../server/graphql";
+import { getOrderDetails, fetchProductVariants } from "../server/graphql";
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -39,10 +39,34 @@ export const action = async ({ request }) => {
       throw new Error(responseJson.error);
     }
 
+    const orderData = responseJson.data?.order;
+    if (!orderData) {
+      return cors(new Response(JSON.stringify({
+        status: 200,
+        data: null
+      })));
+    }
+
+    // Fetch variants for each line item (as per user's provided logic)
+    const variantsMap = {};
+    const lineItems = orderData.lineItems?.edges || [];
+    for (const edge of lineItems) {
+      const lineItem = edge.node;
+      const productId = lineItem.product?.id;
+      if (productId) {
+        const variants = await fetchProductVariants(admin, productId);
+        variantsMap[lineItem.id] = variants;
+      }
+    }
+
     return cors(new Response(JSON.stringify({
       status: 200,
-      data: responseJson.data?.order || null
+      data: {
+        ...orderData,
+        variantsMap
+      }
     })));
+
 
   } catch (error) {
     console.error("Error in getOrderDetails API:", error);

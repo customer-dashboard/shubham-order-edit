@@ -273,7 +273,13 @@ export async function getOrderDetails(admin, orderId) {
       query getOrderDetails($id: ID!) {
         order(id: $id) {
           id
+          name
           email
+          createdAt
+          currencyCode
+          totalPriceSet {
+            shopMoney { amount currencyCode }
+          }
           shippingAddress {
             firstName
             lastName
@@ -285,6 +291,34 @@ export async function getOrderDetails(admin, orderId) {
             country
             phone
           }
+          customer {
+            id
+            firstName
+            lastName
+            email
+            phone
+          }
+          lineItems(first: 50) {
+            edges {
+              node {
+                id
+                name
+                image {
+                  altText
+                  url
+                }
+                product {
+                  id
+                  title
+                }
+                quantity
+                currentQuantity
+                originalUnitPriceSet {
+                  shopMoney { amount currencyCode }
+                }
+              }
+            }
+          }
         }
       }`,
       { variables: { id: orderId } }
@@ -295,6 +329,112 @@ export async function getOrderDetails(admin, orderId) {
     return { error: error.message };
   }
 }
+
+export async function fetchProductVariants(admin, productId) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getProductVariants($id: ID!) {
+        product(id: $id) {
+          variants(first: 100) {
+            edges {
+              node {
+                id
+                title
+                sku
+                price
+                image { url }
+              }
+            }
+          }
+        }
+      }`,
+      { variables: { id: productId } }
+    );
+    const json = await response.json();
+    return json.data?.product?.variants?.edges.map(e => e.node) || [];
+  } catch (error) {
+    console.error("Error in fetchProductVariants utility:", error);
+    return [];
+  }
+}
+
+export async function orderInvoiceSend(admin, orderId, email) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation OrderInvoiceSend($orderId: ID!, $email: EmailInput) {
+        orderInvoiceSend(id: $orderId, email: $email) {
+          order { id }
+          userErrors { field message }
+        }
+      }`,
+      {
+        variables: {
+          orderId,
+          email: email ? { to: email } : null,
+        },
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in orderInvoiceSend utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function getOrderNote(admin, orderId) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query OrderNote($id: ID!) {
+        order(id: $id) {
+          note
+        }
+      }`,
+      { variables: { id: orderId } }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in getOrderNote utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function updateOrderNote(admin, orderId, note) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation OrderUpdate($input: OrderInput!) {
+        orderUpdate(input: $input) {
+          order {
+            id
+            note
+            tags
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          input: {
+            id: orderId,
+            note: note,
+            tags: ["CDP_ORDER_EDIT"]
+          }
+        }
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in updateOrderNote utility:", error);
+    return { error: error.message };
+  }
+}
+
 
 export async function updateOrderPhone(admin, input) {
   try {
