@@ -265,3 +265,61 @@ export async function updateOrderAddress(admin, input) {
     return { error: error.message };
   }
 }
+
+export async function getOrderDetails(admin, orderId) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getOrderDetails($id: ID!) {
+        order(id: $id) {
+          id
+          email
+          shippingAddress {
+            firstName
+            lastName
+            address1
+            address2
+            city
+            province
+            zip
+            country
+            phone
+          }
+        }
+      }`,
+      { variables: { id: orderId } }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in getOrderDetails utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function updateOrderPhone(admin, input) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation OrderUpdate($input: OrderInput!) {
+        orderUpdate(input: $input) {
+          order {
+            id
+            tags
+            shippingAddress {
+              phone
+            }
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      { variables: { input } }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in updateOrderPhone utility:", error);
+    return { error: error.message };
+  }
+}
