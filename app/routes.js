@@ -10,4 +10,6 @@ export default [
   route("api/order/fetch_note", "api/order_fetch_note.jsx"),
   route("api/order/invoice", "api/order_invoice.jsx"),
   route("api/order/delivery_instruction", "api/order_delivery_instruction.jsx"),
+  route("api/products_search", "api/products_search.jsx"),
+  route("api/order/update", "api/order_update.jsx"),
 ];

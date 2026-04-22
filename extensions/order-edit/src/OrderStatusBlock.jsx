@@ -9,21 +9,20 @@ export default async () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://nearly-diamond-treasures-jeremy.trycloudflare.com";
+const BASEURL = "https://release-positive-noble-steady.trycloudflare.com";
 
 function OrderStatusManager() {
-  const order = shopify.order;
+  const orderId = shopify.order?.value?.id;
   const sessionToken = shopify.sessionToken;
-  const orderId = order?.current?.id;
-  const storeId = shopify.shop.id.replace("gid://shopify/Shop/", "");
+  const storeId = shopify.shop?.value?.id?.replace("gid://shopify/Shop/", "") || "";
   const orderNumericId = orderId?.replace("gid://shopify/Order/", "");
 
   // Shared state
-  const [shippingAddress, setShippingAddress] = useState(shopify.shippingAddress.value);
+  const [shippingAddress, setShippingAddress] = useState(shopify.shippingAddress?.value || {});
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedCountry, setSelectedCountry] = useState(
-    shopify.shippingAddress.value?.countryCode ?? shopify.shippingAddress.value?.["country"] ?? ""
+    shopify.shippingAddress?.value?.countryCode ?? shopify.shippingAddress?.value?.["country"] ?? ""
   );
 
   // Box states
@@ -31,6 +30,7 @@ function OrderStatusManager() {
   const [phoneBoxOpen, setPhoneBoxOpen] = useState(false);
   const [openInvoice, setOpenInvoice] = useState(false);
   const [openDelivery, setOpenDelivery] = useState(false);
+  const [openAddProduct, setOpenAddProduct] = useState(false);
 
   // Saving states
   const [isAddressSaving, setIsAddressSaving] = useState(false);
@@ -42,7 +42,7 @@ function OrderStatusManager() {
   const [lastInvoiceAction, setLastInvoiceAction] = useState(null);
 
   // Settings
-  const settings = shopify.settings.value;
+  const settings = shopify.settings?.value || {};
   const showDownloadInvoice = settings?.download_invoice ?? true;
   const showDeliveryInst = settings?.change_delivery_instruction ?? true;
 
@@ -52,6 +52,38 @@ function OrderStatusManager() {
   const [deliveryInst, setDeliveryInst] = useState("");
   const [orderId_full, setOrderId_full] = useState(null);
 
+  // Product Search/Add state (Adopting reference implementation)
+  const [fullOrder, setFullOrder] = useState(null);
+  const [originalOrder, setOriginalOrder] = useState(null);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [page, setPage] = useState(0);
+
+  const originalFullOrderRef = useRef(null);
+  const baselineReadyRef = useRef(false);
+
+  const pageSize = 4;
+  const products_list = productSearchResults ?? [];
+  const totalPages = Math.max(1, Math.ceil(products_list.length / pageSize));
+  const start = page * pageSize;
+  const visibleProducts = products_list.slice(start, start + pageSize);
+
+  const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
+
+  const normalizeProducts = (raw) =>
+    raw.map((item) => {
+      const product = item.node ?? item;
+      return {
+        id: product.id,
+        title: product.title,
+        vendor: product.vendor,
+        featuredImage: product.featuredImage ?? null,
+        variants: product.variants
+      };
+    });
+
   // Refs for tracking changes
   const originalAddressRef = useRef(null);
   const originalPhoneRef = useRef(null);
@@ -60,7 +92,9 @@ function OrderStatusManager() {
   useEffect(() => {
     async function loadData() {
       try {
+        console.log("loadData started. Order ID:", orderId);
         const token = await sessionToken.get();
+        console.log("Session token retrieved.");
 
         // 1. Load order details (including full ID and email)
         const orderRes = await fetch(`${BASEURL}/api/order-status`, {
@@ -68,7 +102,13 @@ function OrderStatusManager() {
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
           body: JSON.stringify({ Target: "GET_ORDER_DETAILS", id: orderId }),
         });
+
+        if (!orderRes.ok) {
+          throw new Error(`Order fetch failed with status: ${orderRes.status}`);
+        }
+
         const json = await orderRes.json();
+        console.log("Order details received:", json);
         const fetchedOrder = json.data;
 
         if (fetchedOrder) {
@@ -84,10 +124,41 @@ function OrderStatusManager() {
           if (fetchedOrder.id) {
             setOrderId_full(fetchedOrder.id);
           }
+
+          // Reference logic: Initialize order staging
+          let fetchedForStaging = deepClone(fetchedOrder);
+          if (fetchedForStaging?.lineItems?.edges) {
+            fetchedForStaging = {
+              ...fetchedForStaging,
+              lineItems: {
+                ...fetchedForStaging.lineItems,
+                edges: fetchedForStaging.lineItems.edges.filter((e) => e?.node?.currentQuantity > 0)
+              }
+            };
+          }
+          setFullOrder(fetchedForStaging);
+          setOriginalOrder(fetchedForStaging);
+        }
+
+        // Fetch initial products (Reference logic)
+        try {
+          console.log("Fetching search results...");
+          const pRes = await fetch(`${BASEURL}/api/products_search`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+            body: JSON.stringify({ query: "" }), // Fetch some default products or empty
+          });
+          const json = await pRes.json();
+          setProductSearchResults(normalizeProducts(json.data || []));
+          console.log("Search results received.");
+        } catch (e) {
+          console.error("Products search error:", e);
+          setProductSearchResults([]);
         }
 
         // 2. Load delivery note
         if (showDeliveryInst) {
+          console.log("Fetching delivery instructions...");
           const noteRes = await fetch(`${BASEURL}/api/order/fetch_note`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
@@ -96,10 +167,13 @@ function OrderStatusManager() {
           const { note } = await noteRes.json();
           setDeliveryInst(note ?? "");
           if (note && !originalNoteRef.current) originalNoteRef.current = note;
+          console.log("Delivery instructions received.");
         }
       } catch (err) {
+        console.error("loadData error:", err);
         shopify.toast.show("Error: Unable to load order details.");
       } finally {
+        console.log("loadData finished. Setting loading to false.");
         setLoading(false);
       }
     }
@@ -131,6 +205,23 @@ function OrderStatusManager() {
   const hasDeliveryInstChanges = () => {
     return originalNoteRef.current !== deliveryInst;
   };
+
+  const hasLineItemsChanges = () => {
+    if (!baselineReadyRef.current || !originalFullOrderRef.current || !fullOrder) return false;
+    const newEdges = fullOrder.lineItems?.edges ?? [];
+    return newEdges.some((edge) => edge.added || !edge?.node?.id);
+  };
+
+  useEffect(() => {
+    if (!fullOrder) return;
+    if (!baselineReadyRef.current) {
+      const edges = fullOrder?.lineItems?.edges ?? [];
+      if (edges.length > 0) {
+        originalFullOrderRef.current = deepClone(fullOrder);
+        baselineReadyRef.current = true;
+      }
+    }
+  }, [fullOrder]);
 
   // Validation
   const validatePhone = (phone, countryCode) => {
@@ -217,6 +308,133 @@ function OrderStatusManager() {
       shopify.toast.show("Error: Unable to save changes.");
     } finally {
       setIsSavingDelivery(false);
+    }
+  };
+
+  const handleProductSearch = async (query) => {
+    setProductSearchQuery(query);
+    setPage(0);
+    if (!query) {
+      // Could fetch defaults again if needed
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const token = await sessionToken.get();
+      const res = await fetch(`${BASEURL}/api/products_search`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      const json = await res.json();
+      setProductSearchResults(normalizeProducts(json.data || []));
+    } catch (e) {
+      console.error("Search error:", e);
+      setProductSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const toggleAddProduct = (product) => {
+    setFullOrder((o) => {
+      if (!o) return o;
+      const edges = o.lineItems?.edges ?? [];
+
+      // Handle potential variant nesting
+      const variantNode = product.variants?.edges?.[0]?.node || product.variants?.[0];
+      const price = variantNode?.price || "0.00";
+      const productId = product.id;
+      const variantId = variantNode?.id ?? null;
+
+      const existingIndex = edges.findIndex((e) => e.added === true && String(e.product_id) === String(productId));
+
+      if (existingIndex !== -1) {
+        return {
+          ...o,
+          lineItems: {
+            ...o.lineItems,
+            edges: edges.filter((_, i) => i !== existingIndex)
+          }
+        };
+      }
+
+      const newItem = {
+        node: {
+          id: null,
+          name: product.title,
+          image: product.featuredImage ?? null,
+          currentQuantity: 1,
+          quantity: 1,
+          originalUnitPriceSet: {
+            shopMoney: { amount: String(price), currencyCode: o.currencyCode ?? "INR" }
+          }
+        },
+        variant_id: variantId,
+        product_id: productId,
+        title: product.title,
+        price: String(price),
+        image: product.featuredImage?.url ?? null,
+        currentQuantity: 1,
+        vendor: product.vendor ?? null,
+        properties: [],
+        added: true,
+      };
+
+      return {
+        ...o,
+        lineItems: { ...o.lineItems, edges: [...edges, newItem] }
+      };
+    });
+  };
+
+  const handleAddProduct = async () => {
+    if (!fullOrder || !originalOrder) return;
+    setIsSaving(true);
+    try {
+      const newEdges = fullOrder.lineItems?.edges ?? [];
+      const added_line_items = newEdges
+        .filter((edge) => edge.added || !edge?.node?.id)
+        .map((edge) => ({
+          variant_id: edge.variant_id ?? null,
+          product_id: edge.product_id ?? null,
+          quantity: edge.node?.quantity ?? 1,
+          price: edge.node?.originalUnitPriceSet?.shopMoney?.amount ?? "0.00",
+          title: edge.node?.name ?? edge.title ?? "",
+          properties: edge.node?.properties ?? [],
+        }));
+
+      if (!added_line_items.length) {
+        setIsSaving(false);
+        return;
+      }
+
+      const token = await sessionToken.get();
+      const res = await fetch(`${BASEURL}/api/order/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, Accept: "application/json" },
+        body: JSON.stringify({
+          Target: "UPDATE_ORDER",
+          id: orderId_full ?? orderId,
+          updated: { added_line_items }
+        }),
+      });
+
+      const json = await res.json();
+      if (json.status === 200) {
+        shopify.toast.show("Products added successfully.");
+        // Redirect to refresh order view
+        if (typeof navigation !== "undefined") {
+          navigation.navigate(`https://shopify.com/${storeId}/account/orders/${orderNumericId}`);
+        }
+      } else {
+        shopify.toast.show(`Error: ${json.error || "Unable to save changes."}`);
+      }
+    } catch (e) {
+      shopify.toast.show("Error: Unable to save changes.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -498,6 +716,97 @@ function OrderStatusManager() {
               )}
             </s-box>
           )}
+          <s-divider />
+          {/* ADD PRODUCT SECTION */}
+          <s-box padding="base">
+            <s-clickable inlineSize="100%" onClick={() => setOpenAddProduct(!openAddProduct)}>
+              <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                <s-box padding="large none">
+                  <s-stack direction="inline" alignItems="center" gap="base">
+                    <s-icon type="plus" />
+                    <s-heading>Add more products</s-heading>
+                  </s-stack>
+                </s-box>
+                {openAddProduct ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+              </s-stack>
+            </s-clickable>
+
+            {openAddProduct && (
+              <s-stack gap="base" direction="block">
+                <s-text-field
+                  label="Search products"
+                  placeholder="Search products..."
+                  value={productSearchQuery}
+                  onChange={(val) => { handleProductSearch(val.target.value); }}
+                />
+
+                {searchLoading ? (
+                  <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
+                    <s-box padding="large"><s-spinner size="small" /></s-box>
+                  </s-stack>
+                ) : (
+                  <>
+                    {!searchLoading && visibleProducts.length === 0 && <s-text color="subdued">No products found.</s-text>}
+                    {visibleProducts.map((p, i) => {
+                      const edges = fullOrder?.lineItems?.edges ?? [];
+                      // Handle both connection and flat variants structure
+                      const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
+                      const variantId = variantNode?.id ?? p.id;
+                      const isAdded = edges.some((item) => item.variant_id === variantId || item.product_id === p.id);
+                      const price = variantNode?.price || "0.00";
+
+                      return (
+                        <s-grid
+                          key={p.id ?? i}
+                          gridTemplateColumns="auto 1fr auto"
+                          gap="base"
+                          alignItems="center"
+                          padding="base"
+                          borderWidth="base"
+                          borderRadius="base"
+                        >
+                          <s-stack inlineSize="64px" blockSize="64px">
+                            <s-image
+                              src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"}
+                              alt={p?.title}
+                              inlineSize="fill"
+                              objectFit="contain"
+                            />
+                          </s-stack>
+                          <s-stack gap="small-100" direction="block">
+                            <s-text tone="bold">{p?.title}</s-text>
+                            {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
+                            <s-text>₹{price}</s-text>
+                          </s-stack>
+                          <s-button
+                            variant={isAdded ? "secondary" : "primary"}
+                            tone={isAdded ? "critical" : undefined}
+                            onClick={() => toggleAddProduct(p)}
+                          >
+                            {isAdded ? "Remove" : "Add product"}
+                          </s-button>
+                        </s-grid>
+                      );
+                    })}
+                  </>
+                )}
+
+                {products_list.length > pageSize && (
+                  <s-stack direction="inline" gap="base" alignItems="center" justifyContent="center">
+                    <s-button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</s-button>
+                    <s-text type="small">Page {page + 1} of {totalPages}</s-text>
+                    <s-button variant="secondary" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>›</s-button>
+                  </s-stack>
+                )}
+
+                <s-stack direction="inline" justifyContent="end">
+                  {hasLineItemsChanges() && (
+                    <s-button variant="primary" loading={isSaving} onClick={handleAddProduct}>Save changes</s-button>
+                  )}
+                </s-stack>
+              </s-stack>
+            )}
+          </s-box>
         </s-box>
       </s-section>
     </s-stack>

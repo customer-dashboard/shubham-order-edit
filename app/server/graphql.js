@@ -463,3 +463,127 @@ export async function updateOrderPhone(admin, input) {
     return { error: error.message };
   }
 }
+
+export async function searchProducts(admin, query) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query searchProducts($query: String!) {
+        products(first: 10, query: $query) {
+          edges {
+            node {
+              id
+              title
+              handle
+              featuredImage {
+                url
+              }
+              variants(first: 20) {
+                edges {
+                  node {
+                    id
+                    title
+                    price
+                    sku
+                    image { url }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { variables: { query: `title:*${query}*` } }
+    );
+    const json = await response.json();
+    const products = json.data?.products?.edges.map(e => {
+      const node = e.node;
+      return {
+        ...node,
+        variants: node.variants.edges.map(v => v.node)
+      };
+    }) || [];
+    return products;
+  } catch (error) {
+    console.error("Error in searchProducts utility:", error);
+    return [];
+  }
+}
+
+export async function orderEditBegin(admin, orderId) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation orderEditBegin($id: ID!) {
+        orderEditBegin(id: $id) {
+          calculatedOrder {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      { variables: { id: orderId } }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in orderEditBegin utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function orderEditAddVariant(admin, calculatedOrderId, variantId, quantity) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation orderEditAddVariant($id: ID!, $variantId: ID!, $quantity: Int!) {
+        orderEditAddVariant(id: $id, variantId: $variantId, quantity: $quantity) {
+          calculatedOrder {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          id: calculatedOrderId,
+          variantId,
+          quantity: parseInt(quantity, 10),
+        },
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in orderEditAddVariant utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function orderEditCommit(admin, calculatedOrderId) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation orderEditCommit($id: ID!) {
+        orderEditCommit(id: $id, notifyCustomer: true, staffNote: "Added items via Customer Account Dashboard") {
+          order {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      { variables: { id: calculatedOrderId } }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in orderEditCommit utility:", error);
+    return { error: error.message };
+  }
+}
