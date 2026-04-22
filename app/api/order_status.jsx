@@ -20,7 +20,7 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { Target, id } = body;
+    const { Target, id, countryCode } = body;
 
     if (Target !== "GET_ORDER_DETAILS") {
       return cors(new Response(JSON.stringify({ error: "Invalid target" }), { status: 400 }));
@@ -54,7 +54,7 @@ export const action = async ({ request }) => {
       const lineItem = edge.node;
       const productId = lineItem.product?.id;
       if (productId) {
-        const variants = await fetchProductVariants(admin, productId);
+        const variants = await fetchProductVariants(admin, productId, countryCode);
         variantsMap[lineItem.id] = variants;
       }
     }

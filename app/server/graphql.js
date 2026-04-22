@@ -279,6 +279,7 @@ export async function getOrderDetails(admin, orderId) {
           currencyCode
           totalPriceSet {
             shopMoney { amount currencyCode }
+            presentmentMoney { amount currencyCode }
           }
           shippingAddress {
             firstName
@@ -318,6 +319,7 @@ export async function getOrderDetails(admin, orderId) {
                 }
                 originalUnitPriceSet {
                   shopMoney { amount currencyCode }
+                  presentmentMoney { amount currencyCode }
                 }
               }
             }
@@ -333,11 +335,11 @@ export async function getOrderDetails(admin, orderId) {
   }
 }
 
-export async function fetchProductVariants(admin, productId) {
+export async function fetchProductVariants(admin, productId, countryCode) {
   try {
     const response = await admin.graphql(
       `#graphql
-      query getProductVariants($id: ID!) {
+      query getProductVariants($id: ID!, $country: CountryCode) {
         product(id: $id) {
           variants(first: 100) {
             edges {
@@ -345,20 +347,25 @@ export async function fetchProductVariants(admin, productId) {
                 id
                 title
                 sku
-                price
+                contextualPricing(context: { country: $country }) {
+                  price {
+                    amount
+                    currencyCode
+                  }
+                }
                 image { url }
               }
             }
           }
         }
       }`,
-      { variables: { id: productId } }
+      { variables: { id: productId, country: countryCode } }
     );
     const json = await response.json();
     return json.data?.product?.variants?.edges.map(e => e.node) || [];
   } catch (error) {
-    console.error("Error in fetchProductVariants utility:", error);
-    return [];
+    console.error("Error in getOrderDetails utility:", error);
+    return { error: error.message };
   }
 }
 
@@ -467,12 +474,12 @@ export async function updateOrderPhone(admin, input) {
   }
 }
 
-export async function searchProducts(admin, query) {
+export async function searchProducts(admin, query, countryCode) {
   try {
     const filter = query ? `title:*${query}*` : "";
     const response = await admin.graphql(
       `#graphql
-      query searchProducts($query: String) {
+      query searchProducts($query: String, $country: CountryCode) {
         products(first: 10, query: $query) {
           edges {
             node {
@@ -487,7 +494,12 @@ export async function searchProducts(admin, query) {
                   node {
                     id
                     title
-                    price
+                    contextualPricing(context: { country: $country }) {
+                      price {
+                        amount
+                        currencyCode
+                      }
+                    }
                     sku
                     image { url }
                   }
@@ -497,19 +509,53 @@ export async function searchProducts(admin, query) {
           }
         }
       }`,
-      { variables: { query: filter } }
+      { variables: { query: filter, country: countryCode } }
     );
     const json = await response.json();
     const products = json.data?.products?.edges.map(e => {
-      const node = e.node;
+      const p = e.node;
       return {
-        ...node,
-        variants: node.variants.edges.map(v => v.node)
+        ...p,
+        variants: p.variants.edges.map(ve => ve.node)
       };
-    }) || [];
-    return products;
+    });
+    return products || [];
   } catch (error) {
     console.error("Error in searchProducts utility:", error);
+    return [];
+  }
+}
+
+export async function fetchProductVariants(admin, productId, countryCode) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getVariants($id: ID!, $country: CountryCode) {
+        product(id: $id) {
+          variants(first: 100) {
+            edges {
+              node {
+                id
+                title
+                sku
+                price
+                contextualPricing(context: { country: $country }) {
+                  price {
+                    amount
+                    currencyCode
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { variables: { id: productId, country: countryCode } }
+    );
+    const json = await response.json();
+    return json.data?.product?.variants?.edges.map(e => e.node) || [];
+  } catch (error) {
+    console.error("Error in fetchProductVariants:", error);
     return [];
   }
 }
@@ -526,6 +572,7 @@ export async function orderEditBegin(admin, orderId) {
               edges {
                 node {
                   id
+                  quantity
                   variant {
                     id
                   }
@@ -630,4 +677,71 @@ export async function orderEditSetQuantity(admin, calculatedOrderId, lineItemId,
     console.error("Error in orderEditSetQuantity utility:", error);
     return { error: error.message };
   }
-}
+}
+
+export async function getCodeDiscountByCode(admin, code) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getDiscount($code: String!) {
+        codeDiscountNodeByCode(code: $code) {
+          id
+          codeDiscount {
+            ... on DiscountCodeBasic {
+              title
+              customerGets {
+                value {
+                  ... on DiscountAmount {
+                    amount {
+                      amount
+                      currencyCode
+                    }
+                  }
+                  ... on DiscountPercentage {
+                    percentage
+                  }
+                }
+              }
+            }
+          }
+        }
+      }`,
+      { variables: { code } }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in getCodeDiscountByCode utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function orderEditAddLineItemDiscount(admin, calculatedOrderId, lineItemId, discount) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation orderEditAddLineItemDiscount($id: ID!, $lineItemId: ID!, $discount: OrderEditAppliedDiscountInput!) {
+        orderEditAddLineItemDiscount(id: $id, lineItemId: $lineItemId, discount: $discount) {
+          calculatedOrder {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          id: calculatedOrderId,
+          lineItemId,
+          discount,
+        },
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in orderEditAddLineItemDiscount utility:", error);
+    return { error: error.message };
+  }
+}
+

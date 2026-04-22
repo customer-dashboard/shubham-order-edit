@@ -12,4 +12,5 @@ export default [
   route("api/order/delivery_instruction", "api/order_delivery_instruction.jsx"),
   route("api/products_search", "api/products_search.jsx"),
   route("api/order/update", "api/order_update.jsx"),
+  route("api/discount/apply", "api/discount_apply.jsx"),
 ];

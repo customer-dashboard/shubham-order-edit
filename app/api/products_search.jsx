@@ -16,12 +16,12 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { query } = body;
+    const { query, countryCode } = body;
 
     // Get Admin client for the shop
     const { admin } = await unauthenticated.admin(shopDomain);
 
-    const products = await searchProducts(admin, query);
+    const products = await searchProducts(admin, query, countryCode);
     return cors(new Response(JSON.stringify({ status: 200, data: products })));
   } catch (error) {
     console.error("Error in products_search action:", error);
