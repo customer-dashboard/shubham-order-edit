@@ -313,6 +313,9 @@ export async function getOrderDetails(admin, orderId) {
                 }
                 quantity
                 currentQuantity
+                variant {
+                  id
+                }
                 originalUnitPriceSet {
                   shopMoney { amount currencyCode }
                 }
@@ -466,9 +469,10 @@ export async function updateOrderPhone(admin, input) {
 
 export async function searchProducts(admin, query) {
   try {
+    const filter = query ? `title:*${query}*` : "";
     const response = await admin.graphql(
       `#graphql
-      query searchProducts($query: String!) {
+      query searchProducts($query: String) {
         products(first: 10, query: $query) {
           edges {
             node {
@@ -493,7 +497,7 @@ export async function searchProducts(admin, query) {
           }
         }
       }`,
-      { variables: { query: `title:*${query}*` } }
+      { variables: { query: filter } }
     );
     const json = await response.json();
     const products = json.data?.products?.edges.map(e => {
@@ -518,6 +522,16 @@ export async function orderEditBegin(admin, orderId) {
         orderEditBegin(id: $id) {
           calculatedOrder {
             id
+            lineItems(first: 100) {
+              edges {
+                node {
+                  id
+                  variant {
+                    id
+                  }
+                }
+              }
+            }
           }
           userErrors {
             field
@@ -584,6 +598,36 @@ export async function orderEditCommit(admin, calculatedOrderId) {
     return await response.json();
   } catch (error) {
     console.error("Error in orderEditCommit utility:", error);
+    return { error: error.message };
+  }
+}
+
+export async function orderEditSetQuantity(admin, calculatedOrderId, lineItemId, quantity) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation orderEditSetQuantity($id: ID!, $lineItemId: ID!, $quantity: Int!) {
+        orderEditSetQuantity(id: $id, lineItemId: $lineItemId, quantity: $quantity) {
+          calculatedOrder {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          id: calculatedOrderId,
+          lineItemId,
+          quantity: parseInt(quantity, 10),
+        },
+      }
+    );
+    return await response.json();
+  } catch (error) {
+    console.error("Error in orderEditSetQuantity utility:", error);
     return { error: error.message };
   }
 }

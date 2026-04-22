@@ -14,7 +14,8 @@ const BASEURL = "https://release-positive-noble-steady.trycloudflare.com";
 function OrderStatusManager() {
   const orderId = shopify.order?.value?.id;
   const sessionToken = shopify.sessionToken;
-  const storeId = shopify.shop?.value?.id?.replace("gid://shopify/Shop/", "") || "";
+  console.log("okkkkkk=====", shopify)
+  const storeId = shopify.shop?.id?.replace("gid://shopify/Shop/", "") || "";
   const orderNumericId = orderId?.replace("gid://shopify/Order/", "");
 
   // Shared state
@@ -31,6 +32,8 @@ function OrderStatusManager() {
   const [openInvoice, setOpenInvoice] = useState(false);
   const [openDelivery, setOpenDelivery] = useState(false);
   const [openAddProduct, setOpenAddProduct] = useState(false);
+  const [openEditLines, setOpenEditLines] = useState(false);
+  const [replaceIndex, setReplaceIndex] = useState(null);
 
   // Saving states
   const [isAddressSaving, setIsAddressSaving] = useState(false);
@@ -45,6 +48,9 @@ function OrderStatusManager() {
   const settings = shopify.settings?.value || {};
   const showDownloadInvoice = settings?.download_invoice ?? true;
   const showDeliveryInst = settings?.change_delivery_instruction ?? true;
+  const showUpdateQuantity = settings?.update_quantity ?? true;
+  const showReplaceButton = settings?.replace_line_item ?? true;
+  const showDeleteButton = settings?.remove_line_item ?? true;
 
   // Invoice & Delivery logic
   const [invoiceOption, setInvoiceOption] = useState(["email"]);
@@ -58,7 +64,9 @@ function OrderStatusManager() {
   const [productSearchQuery, setProductSearchQuery] = useState("");
   const [productSearchResults, setProductSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isSavingLines, setIsSavingLines] = useState(false);
+  const [isAddingProducts, setIsAddingProducts] = useState(false);
+  const [isSavingFullOrder, setIsSavingFullOrder] = useState(false);
   const [page, setPage] = useState(0);
 
   const originalFullOrderRef = useRef(null);
@@ -208,8 +216,173 @@ function OrderStatusManager() {
 
   const hasLineItemsChanges = () => {
     if (!baselineReadyRef.current || !originalFullOrderRef.current || !fullOrder) return false;
+    const origEdges = originalFullOrderRef.current.lineItems?.edges ?? [];
     const newEdges = fullOrder.lineItems?.edges ?? [];
-    return newEdges.some((edge) => edge.added || !edge?.node?.id);
+    const hasAdded = newEdges.some((edge) => edge.added || !edge?.node?.id);
+    const hasRemoved = origEdges.some((origEdge) => {
+      const origId = origEdge?.node?.id;
+      if (!origId) return false;
+      const newEdge = newEdges.find((edge) => edge?.node?.id && String(edge.node.id) === String(origId));
+      return !newEdge || newEdge.remove;
+    });
+    const hasQuantityChanged = origEdges.some((origEdge) => {
+      const origId = origEdge?.node?.id;
+      if (!origId) return false;
+      const newEdge = newEdges.find((edge) => edge?.node?.id && String(edge.node.id) === String(origId));
+      return newEdge && Number(origEdge.node.quantity) !== Number(newEdge.node.quantity);
+    });
+    const hasReplaced = newEdges.some((edge) => edge.replaced_with);
+    return hasAdded || hasRemoved || hasQuantityChanged || hasReplaced;
+  };
+
+  const updateLineQty = (index, value) => {
+    const qty = Number(value.target?.value ?? value);
+    setFullOrder((o) => {
+      if (!o) return o;
+      const edges = o.lineItems?.edges ?? [];
+      return {
+        ...o,
+        lineItems: {
+          ...o.lineItems,
+          edges: edges.map((edge, i) => i === index ? { ...edge, node: { ...edge.node, quantity: qty } } : edge)
+        }
+      };
+    });
+  };
+
+  const toggleRemove = (index) => {
+    setFullOrder((o) => {
+      if (!o) return o;
+      const edges = o.lineItems?.edges ?? [];
+      const updatedEdges = edges.map((edge, i) => {
+        if (i !== index) return edge;
+        const alreadyRemoved = edge.remove === true;
+        const originalQty = edge.originalQuantity ?? edge.node?.quantity ?? edge.node?.currentQuantity ?? 1;
+        if (alreadyRemoved) {
+          const { remove, originalQuantity, ...restEdge } = edge;
+          return { ...restEdge, node: { ...edge.node, quantity: originalQuantity } };
+        }
+        return { ...edge, remove: true, originalQuantity: originalQty, node: { ...edge.node, quantity: 0 } };
+      });
+      return { ...o, lineItems: { ...o.lineItems, edges: updatedEdges } };
+    });
+  };
+
+  const toggleReplace = (index, newProduct) => {
+    const variantNode = newProduct?.variants?.edges?.[0]?.node || newProduct?.variants?.[0];
+    if (!variantNode) return;
+    const price = variantNode.price ?? "0.00";
+    const newVariantId = variantNode.id;
+    setFullOrder((prev) => {
+      if (!prev) return prev;
+      const edges = prev.lineItems?.edges ?? [];
+      const updatedEdges = edges.map((edge, i) => {
+        if (i !== index) return edge;
+        const alreadyReplaced = edge.replaced_with && String(edge.replaced_with.variant_id) === String(newVariantId);
+        if (alreadyReplaced) {
+          const { replaced_with, ...rest } = edge;
+          return rest;
+        }
+        return {
+          ...edge,
+          replaced_with: {
+            title: newProduct.title ?? newProduct.node?.title ?? "",
+            variant_id: newVariantId,
+            product_id: newProduct.id ?? null,
+            price: String(price)
+          }
+        };
+      });
+      return { ...prev, lineItems: { ...prev.lineItems, edges: updatedEdges } };
+    });
+  };
+
+  const handleOrderEdit = async (source) => {
+    if (!fullOrder || !originalOrder) return;
+
+    if (source === "lines") setIsSavingLines(true);
+    else if (source === "add") setIsAddingProducts(true);
+    else setIsSavingFullOrder(true);
+
+    try {
+      const origEdges = originalOrder.lineItems?.edges ?? [];
+      const newEdges = fullOrder.lineItems?.edges ?? [];
+      const changed_line_items = [], added_line_items = [], removed_line_items = [], replacement_items = [];
+      const origById = {};
+      origEdges.forEach((edge) => { if (edge?.node?.id) origById[String(edge.node.id)] = edge; });
+      newEdges.forEach((edge) => {
+        const node = edge?.node ?? {};
+        const itemId = node?.id;
+        if (!itemId || edge.added) {
+          added_line_items.push({ variant_id: edge.variant_id ?? null, product_id: edge.product_id ?? null, quantity: node.quantity ?? 1, price: node.originalUnitPriceSet?.shopMoney?.amount ?? "0.00", title: node.name ?? edge.title ?? "", properties: node.properties ?? [] });
+          return;
+        }
+        const origEdge = origById[String(itemId)];
+        if (!origEdge) return;
+        if (edge.replaced_with) {
+          replacement_items.push({
+            old_line_item_id: itemId,
+            variant_id: origEdge.node.variant?.id,
+            new_item: {
+              title: edge.replaced_with.title ?? "",
+              variant_id: edge.replaced_with.variant_id ?? null,
+              product_id: edge.replaced_with.product_id ?? null,
+              price: edge.replaced_with.price ?? "0.00",
+              quantity: node.quantity ?? origEdge.node.quantity
+            }
+          });
+          return;
+        }
+        if (edge.remove) {
+          removed_line_items.push({
+            id: itemId,
+            variant_id: origEdge.node.variant?.id
+          });
+          return;
+        }
+        if (Number(origEdge.node.quantity) !== Number(node.quantity)) {
+          changed_line_items.push({
+            id: itemId,
+            variant_id: origEdge.node.variant?.id,
+            quantity: Number(node.quantity)
+          });
+        }
+      });
+      const updated = {};
+      if (changed_line_items.length) updated.changed_line_items = changed_line_items;
+      if (added_line_items.length) updated.added_line_items = added_line_items;
+      if (removed_line_items.length) updated.removed_line_items = removed_line_items;
+      if (replacement_items.length) updated.replacements = replacement_items;
+
+      if (!Object.keys(updated).length) {
+        setIsSavingLines(false);
+        setIsAddingProducts(false);
+        setIsSavingFullOrder(false);
+        return;
+      }
+
+      const token = await sessionToken.get();
+      const res = await fetch(`${BASEURL}/api/order/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, Accept: "application/json" },
+        body: JSON.stringify({ Target: "UPDATE_ORDER", id: orderId_full ?? orderId, updated }),
+      });
+      const json = await res.json();
+      if (json.status === 200) {
+        shopify.toast.show("Order updated successfully.");
+        if (typeof shopify.navigation !== "undefined") {
+          shopify.navigation.navigate(`https://shopify.com/${storeId}/account/orders/${orderNumericId}`);
+        }
+      } else {
+        shopify.toast.show(`Error: ${json.error || "Unable to save changes."}`);
+      }
+    } catch (e) {
+      shopify.toast.show("Error: Unable to save changes.");
+    } finally {
+      setIsSavingLines(false);
+      setIsAddingProducts(false);
+      setIsSavingFullOrder(false);
+    }
   };
 
   useEffect(() => {
@@ -314,11 +487,6 @@ function OrderStatusManager() {
   const handleProductSearch = async (query) => {
     setProductSearchQuery(query);
     setPage(0);
-    if (!query) {
-      // Could fetch defaults again if needed
-      return;
-    }
-
     setSearchLoading(true);
     try {
       const token = await sessionToken.get();
@@ -389,54 +557,7 @@ function OrderStatusManager() {
     });
   };
 
-  const handleAddProduct = async () => {
-    if (!fullOrder || !originalOrder) return;
-    setIsSaving(true);
-    try {
-      const newEdges = fullOrder.lineItems?.edges ?? [];
-      const added_line_items = newEdges
-        .filter((edge) => edge.added || !edge?.node?.id)
-        .map((edge) => ({
-          variant_id: edge.variant_id ?? null,
-          product_id: edge.product_id ?? null,
-          quantity: edge.node?.quantity ?? 1,
-          price: edge.node?.originalUnitPriceSet?.shopMoney?.amount ?? "0.00",
-          title: edge.node?.name ?? edge.title ?? "",
-          properties: edge.node?.properties ?? [],
-        }));
 
-      if (!added_line_items.length) {
-        setIsSaving(false);
-        return;
-      }
-
-      const token = await sessionToken.get();
-      const res = await fetch(`${BASEURL}/api/order/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, Accept: "application/json" },
-        body: JSON.stringify({
-          Target: "UPDATE_ORDER",
-          id: orderId_full ?? orderId,
-          updated: { added_line_items }
-        }),
-      });
-
-      const json = await res.json();
-      if (json.status === 200) {
-        shopify.toast.show("Products added successfully.");
-        // Redirect to refresh order view
-        if (typeof navigation !== "undefined") {
-          navigation.navigate(`https://shopify.com/${storeId}/account/orders/${orderNumericId}`);
-        }
-      } else {
-        shopify.toast.show(`Error: ${json.error || "Unable to save changes."}`);
-      }
-    } catch (e) {
-      shopify.toast.show("Error: Unable to save changes.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   // Save Handlers
   const handleSaveAddress = async () => {
@@ -717,6 +838,71 @@ function OrderStatusManager() {
             </s-box>
           )}
           <s-divider />
+          {/* ORDER LINE ITEMS SECTION */}
+          <s-box padding="base">
+            <s-clickable inlineSize="100%" onClick={() => setOpenEditLines(!openEditLines)}>
+              <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                <s-box padding="large none">
+                  <s-stack direction="inline" alignItems="center" gap="base">
+                    <s-icon type="order" />
+                    <s-heading>Order Line Items</s-heading>
+                  </s-stack>
+                </s-box>
+                {openEditLines ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+              </s-stack>
+            </s-clickable>
+
+            {openEditLines && (
+              <s-grid gap="base">
+                {(fullOrder?.lineItems?.edges ?? []).map((item, index) => (
+                  <s-stack gap="base" inlineSize="100%" key={item.node?.id || index}>
+                    <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base" inlineSize="100%">
+                      <s-stack direction="inline" gap="base" alignItems="center" inlineSize="65%">
+                        <s-stack blockSize="70px" inlineSize="70px">
+                          <s-image src={item?.node?.image?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={item.node?.image?.altText} borderRadius="large-100" border="base" />
+                        </s-stack>
+                        <s-stack gap="small-500">
+                          <s-text type="generic" color="base">{item?.node?.name}</s-text>
+                          <s-text>Price: {item?.node?.originalUnitPriceSet?.shopMoney?.amount}</s-text>
+                          {item.replaced_with && (
+                            <s-text color="info" size="small">Replaced with: {item.replaced_with.title}</s-text>
+                          )}
+                          {item.remove && (
+                            <s-text color="critical" size="small">Marked for removal</s-text>
+                          )}
+                        </s-stack>
+                      </s-stack>
+                      <s-stack direction="inline" alignItems="center" gap="base" justifyContent="end" inlineSize="auto">
+                        {showUpdateQuantity && !item.remove && (
+                          <s-number-field label="Qty" controls="stepper" defaultValue={String(item.node?.currentQuantity)} step={1} min={0} max={100} onChange={(val) => updateLineQty(index, val)} />
+                        )}
+                        <s-stack direction="inline" alignItems="center" gap="base">
+                          {showReplaceButton && !item.remove && (
+                            <s-button variant="secondary" command="--show" commandFor="replacePanelModal" onClick={() => { setReplaceIndex(index); setProductSearchQuery(""); }}>
+                              <s-icon type="reset" />
+                            </s-button>
+                          )}
+                          {showDeleteButton && (
+                            <s-button variant="secondary" tone={item.remove ? undefined : "critical"} inlineSize="auto" onClick={() => toggleRemove(index)}>
+                              {item.remove ? "Undo" : <s-icon type="delete" />}
+                            </s-button>
+                          )}
+                        </s-stack>
+                      </s-stack>
+                    </s-stack>
+                    <s-divider />
+                  </s-stack>
+                ))}
+
+                <s-stack direction="inline" justifyContent="end">
+                  {hasLineItemsChanges() && (
+                    <s-button variant="primary" loading={isSavingLines} onClick={() => handleOrderEdit("lines")}>Save changes</s-button>
+                  )}
+                </s-stack>
+              </s-grid>
+            )}
+          </s-box>
+          <s-divider />
           {/* ADD PRODUCT SECTION */}
           <s-box padding="base">
             <s-clickable inlineSize="100%" onClick={() => setOpenAddProduct(!openAddProduct)}>
@@ -801,14 +987,78 @@ function OrderStatusManager() {
 
                 <s-stack direction="inline" justifyContent="end">
                   {hasLineItemsChanges() && (
-                    <s-button variant="primary" loading={isSaving} onClick={handleAddProduct}>Save changes</s-button>
+                    <s-button variant="primary" loading={isAddingProducts} onClick={() => handleOrderEdit("add")}>Save changes</s-button>
                   )}
                 </s-stack>
               </s-stack>
             )}
           </s-box>
+          <s-divider />
+          <s-box padding="base">
+            <s-stack direction="inline" justifyContent="end">
+              {hasLineItemsChanges() && (
+                <s-button variant="primary" loading={isSavingFullOrder} onClick={() => handleOrderEdit("full")}>Save order changes</s-button>
+              )}
+            </s-stack>
+          </s-box>
         </s-box>
       </s-section>
+
+      {/* Replace Modal */}
+      <s-modal id="replacePanelModal" heading="Replace Product" size="large-100">
+        <s-box padding="small-100">
+          <s-text>Replace product #{(replaceIndex ?? 0) + 1}</s-text>
+        </s-box>
+        <s-stack gap="base" direction="block">
+          <s-text-field
+            label="Search replacement..."
+            placeholder="Search products..."
+            value={productSearchQuery}
+            onChange={(val) => { setPage(0); handleProductSearch(val.target.value); }}
+          />
+          {searchLoading ? (
+            <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
+              <s-box padding="large"><s-spinner size="large-100" /></s-box>
+            </s-stack>
+          ) : (
+            visibleProducts.map((p, i) => {
+              const edges = fullOrder?.lineItems?.edges ?? [];
+              const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
+              const variantId = variantNode?.id ?? p.id;
+              const isReplaced = edges[replaceIndex]?.replaced_with &&
+                String(edges[replaceIndex].replaced_with.variant_id) === String(variantId);
+              const price = variantNode?.price || "0.00";
+              return (
+                <s-grid key={p.id ?? i} gridTemplateColumns="auto 1fr auto" gap="base" alignItems="center" padding="base" borderWidth="base" borderRadius="base">
+                  <s-stack inlineSize="64px" blockSize="64px">
+                    <s-image src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={p?.title} inlineSize="fill" objectFit="contain" />
+                  </s-stack>
+                  <s-stack gap="small-500" direction="block">
+                    <s-text>{p?.title}</s-text>
+                    {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
+                    <s-text>₹{price}</s-text>
+                  </s-stack>
+                  <s-button variant={isReplaced ? "secondary" : "primary"} tone={isReplaced ? "critical" : undefined} onClick={() => toggleReplace(replaceIndex, p)}>
+                    {isReplaced ? "Undo replace" : "Replace with this"}
+                  </s-button>
+                </s-grid>
+              );
+            })
+          )}
+          {products_list.length > pageSize && (
+            <s-stack direction="inline" gap="base" alignItems="center" justifyContent="center">
+              <s-button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</s-button>
+              <s-text type="small">Page {page + 1} of {totalPages}</s-text>
+              <s-button variant="secondary" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>›</s-button>
+            </s-stack>
+          )}
+          <s-stack direction="inline" justifyContent="end">
+            <s-button variant="primary" command="--hide" commandFor="replacePanelModal" slot="primary-action" onClick={() => setReplaceIndex(null)}>
+              Apply Changes
+            </s-button>
+          </s-stack>
+        </s-stack>
+      </s-modal>
     </s-stack>
   );
 }
