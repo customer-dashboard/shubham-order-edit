@@ -58,6 +58,8 @@ export const action = async ({ request }) => {
     const payload = responseJson.data?.orderUpdate;
     if (payload?.userErrors?.length) {
       return cors(new Response(JSON.stringify({
+        status: 400,
+        userErrors: payload.userErrors,
         error: `Order update failed: ${payload.userErrors.map(e => e.message).join(", ")}`
       }), { status: 400 }));
     }
@@ -67,7 +69,7 @@ export const action = async ({ request }) => {
       type: "ADDRESS_UPDATE",
       orderId: UpdatedData.orderId,
       orderName: orderName,
-      message: `Address updated — Order ${orderName}`
+      message: `Address updated`
     });
 
     return cors(new Response(JSON.stringify({

@@ -108,17 +108,17 @@ export const action = async ({ request }) => {
       // Log Activity
       const orderName = body.orderName || `#${orderId.split("/").pop()}`;
       let activityType = "ORDER_UPDATE";
-      let activityMsg = `Order updated — Order ${orderName}`;
+      let activityMsg = `Order updated`;
 
       if (removed_line_items.length > 0) {
         activityType = "ITEM_REMOVED";
-        activityMsg = `Item removed — Order ${orderName}`;
+        activityMsg = `Item removed`;
       } else if (added_line_items.length > 0) {
         activityType = "PRODUCT_ADDED";
-        activityMsg = `Product added — Order ${orderName}`;
+        activityMsg = `Product added`;
       } else if (replacements.length > 0) {
         activityType = "ITEM_REPLACED";
-        activityMsg = `Item replaced — Order ${orderName}`;
+        activityMsg = `Item replaced`;
       }
 
       await logActivity(admin, shopDomain, {

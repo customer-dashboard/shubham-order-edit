@@ -33,7 +33,8 @@ export const action = async ({ request }) => {
 
       const payload = responseJson.data?.orderInvoiceSend;
       if (payload?.userErrors?.length) {
-        throw new Error(`Invoice send failed: ${JSON.stringify(payload.userErrors)}`);
+        const errorMsg = payload.userErrors.map(err => err.message).join(", ");
+        throw new Error(errorMsg);
       }
 
       // Log Activity
@@ -41,7 +42,7 @@ export const action = async ({ request }) => {
         type: "INVOICE_SENT",
         orderId: orderId,
         orderName: orderName,
-        message: `Invoice sent — Order ${orderName}`
+        message: `Invoice sent`
       });
 
       return cors(new Response(JSON.stringify({

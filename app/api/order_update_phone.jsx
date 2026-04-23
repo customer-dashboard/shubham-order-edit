@@ -60,7 +60,7 @@ export const action = async ({ request }) => {
       type: "PHONE_UPDATE",
       orderId: UpdatedData.orderId,
       orderName: orderName,
-      message: `Phone updated — Order ${orderName}`
+      message: `Phone updated`
     });
 
     return cors(new Response(JSON.stringify({

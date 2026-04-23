@@ -9,7 +9,7 @@ export default async () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://interference-volunteer-lid-tabs.trycloudflare.com";
+const BASEURL = "https://wages-first-galleries-ryan.trycloudflare.com";
 
 function OrderStatusManager() {
     const { edit_address, edit_phone, apply_discount, download_invoice, delivery_instructions, edit_order_lines, add_products } = shopify.settings.value;
@@ -115,24 +115,35 @@ function OrderStatusManager() {
     useEffect(() => {
         async function loadData() {
             try {
-
                 const token = await sessionToken.get();
+                const ddt = await shopify.query(`query { shop { id } }`);
+                console.log("ddt", ddt)
+                // Fetch everything in parallel for maximum speed
+                const [orderRes, pRes, noteRes] = await Promise.all([
+                    fetch(`${BASEURL}/api/order-status`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                        body: JSON.stringify({ Target: "GET_ORDER_DETAILS", id: orderId, countryCode }),
+                    }),
+                    fetch(`${BASEURL}/api/products_search`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                        body: JSON.stringify({ query: "" }),
+                    }),
+                    fetch(`${BASEURL}/api/order/fetch_note`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                        body: JSON.stringify({ Target: "FETCH_DELIVERY_INSTRUCTIONS", UpdatedData: { orderId } }),
+                    })
+                ]);
 
+                const [orderJson, pJson, noteJson] = await Promise.all([
+                    orderRes.json(),
+                    pRes.json(),
+                    noteRes.json()
+                ]);
 
-                // 1. Load order details (including full ID and email)
-                const orderRes = await fetch(`${BASEURL}/api/order-status`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                    body: JSON.stringify({ Target: "GET_ORDER_DETAILS", id: orderId, countryCode }),
-                });
-
-                if (!orderRes.ok) {
-                    throw new Error(`Order fetch failed with status: ${orderRes.status}`);
-                }
-
-                const json = await orderRes.json();
-
-                const fetchedOrder = json.data;
+                const fetchedOrder = orderJson.data;
 
                 if (fetchedOrder) {
                     if (fetchedOrder.shippingAddress) {
@@ -141,14 +152,9 @@ function OrderStatusManager() {
                         originalAddressRef.current = JSON.parse(JSON.stringify(fetchedOrder.shippingAddress));
                         originalPhoneRef.current = fetchedOrder.shippingAddress.phone;
                     }
-                    if (fetchedOrder.email) {
-                        setCustomerEmail(fetchedOrder.email);
-                    }
-                    if (fetchedOrder.id) {
-                        setOrderId_full(fetchedOrder.id);
-                    }
+                    if (fetchedOrder.email) setCustomerEmail(fetchedOrder.email);
+                    if (fetchedOrder.id) setOrderId_full(fetchedOrder.id);
 
-                    // Reference logic: Initialize order staging
                     let fetchedForStaging = deepClone(fetchedOrder);
                     if (fetchedForStaging?.lineItems?.edges) {
                         fetchedForStaging = {
@@ -163,38 +169,13 @@ function OrderStatusManager() {
                     setOriginalOrder(fetchedForStaging);
                 }
 
-                // Fetch initial products (Reference logic)
-                try {
-
-                    const pRes = await fetch(`${BASEURL}/api/products_search`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                        body: JSON.stringify({ query: "" }), // Fetch some default products or empty
-                    });
-                    const json = await pRes.json();
-                    setProductSearchResults(normalizeProducts(json.data || []));
-
-                } catch (e) {
-                    console.error("Products search error:", e);
-                    setProductSearchResults([]);
-                }
-
-                // 2. Load delivery note
-
-                const noteRes = await fetch(`${BASEURL}/api/order/fetch_note`, {
-                    method: "POST",
-                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                    body: JSON.stringify({ Target: "FETCH_DELIVERY_INSTRUCTIONS", UpdatedData: { orderId } }),
-                });
-                const { note } = await noteRes.json();
-                setDeliveryInst(note ?? "");
-                if (note && !originalNoteRef.current) originalNoteRef.current = note;
+                setProductSearchResults(normalizeProducts(pJson.data || []));
+                setDeliveryInst(noteJson.note ?? "");
+                if (noteJson.note && !originalNoteRef.current) originalNoteRef.current = noteJson.note;
 
             } catch (err) {
                 console.error("loadData error:", err);
-                shopify.toast.show("Error: Unable to load order details.");
             } finally {
-
                 setLoading(false);
             }
         }
@@ -448,6 +429,24 @@ function OrderStatusManager() {
     };
 
     const handleInvoice = async () => {
+        if (!invoiceOption || invoiceOption.length === 0) {
+            shopify.toast.show("Please select an invoice option.");
+            return;
+        }
+
+        const emailToUse = invoiceEmail || customerEmail;
+        if (invoiceOption.includes("email")) {
+            if (!emailToUse) {
+                shopify.toast.show("Email address is required.");
+                return;
+            }
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(emailToUse)) {
+                shopify.toast.show("Please enter a valid email address.");
+                return;
+            }
+        }
+
         setIsSavingInvoice(true);
         try {
             const token = await sessionToken.get();
@@ -457,12 +456,16 @@ function OrderStatusManager() {
                 body: JSON.stringify({
                     orderId,
                     option: invoiceOption,
-                    email: invoiceOption.includes("email") ? (invoiceEmail || customerEmail) : undefined,
+                    email: emailToUse,
+                    orderName: shopify.order?.value?.name
                 }),
             });
             const json = await res.json();
-            if (json?.message) {
-                setLastInvoiceAction(json.message);
+            if (res.ok) {
+                setLastInvoiceAction(json.message || "Invoice sent successfully.");
+                shopify.toast.show(json.message || "Invoice sent successfully.");
+            } else {
+                shopify.toast.show(`Error: ${json.message || "Unable to process invoice."}`);
             }
         } catch (e) {
             shopify.toast.show("Error: Unable to process invoice.");
@@ -615,7 +618,7 @@ function OrderStatusManager() {
                 city: shippingAddress.city,
                 zip: shippingAddress.zip,
                 phone: shippingAddress.phone,
-                territoryCode: shippingAddress.countryCode || shippingAddress.country,
+                territoryCode: getCountryCode(shippingAddress.countryCode || shippingAddress.country),
             },
         };
         try {
@@ -629,12 +632,14 @@ function OrderStatusManager() {
             });
             const json = await res.json();
             if (json.status !== 200) {
-                let extractedErrors = [];
-                try {
-                    const match = json.error?.match(/\[(.*)\]/);
-                    if (match) extractedErrors = JSON.parse(match[0]);
-                } catch (err) { }
-                setAddressErrors(extractedErrors);
+                const errors = json.userErrors || [];
+                setAddressErrors(errors);
+
+                if (errors.length === 0) {
+                    shopify.toast.show(json.error || "Unable to save address.");
+                } else {
+                    shopify.toast.show("Please fix the errors below.");
+                }
                 return;
             }
             const updated = json.data;
@@ -714,52 +719,63 @@ function OrderStatusManager() {
 
                             {addressBoxOpen && (
                                 <s-grid gap="base">
-                                    <s-select
-                                        label="Country"
-                                        value={getCountryCode(shippingAddress?.countryCode ?? shippingAddress?.country)}
-                                        onChange={(val) => {
-                                            updateField("countryCode", val);
-                                            setSelectedCountry(val.target?.value ?? val);
-                                        }}
-                                    >
-                                        {countries.map((c) => (
-                                            <s-option key={c.code} value={c.code}>{c.name}</s-option>
-                                        ))}
-                                    </s-select>
+                                    {/* Helper to get error for field */}
+                                    {(() => {
+                                        const getError = (f) => addressErrors.find((e) => e.field?.some(part => part.toLowerCase().includes(f.toLowerCase())))?.message;
 
-                                    <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                                        <s-text-field label="First name" value={shippingAddress?.firstName ?? ""} onChange={(val) => updateField("firstName", val)} />
-                                        <s-text-field label="Last name" value={shippingAddress?.lastName ?? ""} onChange={(val) => updateField("lastName", val)} />
-                                    </s-grid>
+                                        return (
+                                            <>
+                                                <s-select
+                                                    label="Country"
+                                                    value={getCountryCode(shippingAddress?.countryCode ?? shippingAddress?.country)}
+                                                    error={getError("country")}
+                                                    onChange={(val) => {
+                                                        updateField("countryCode", val);
+                                                        setSelectedCountry(val.target?.value ?? val);
+                                                    }}
+                                                >
+                                                    {countries.map((c) => (
+                                                        <s-option key={c.code} value={c.code}>{c.name}</s-option>
+                                                    ))}
+                                                </s-select>
 
-                                    <s-text-field label="Address 1" value={shippingAddress?.address1 ?? ""} onChange={(val) => updateField("address1", val)} />
-                                    <s-text-field label="Address 2" value={shippingAddress?.address2 ?? ""} onChange={(val) => updateField("address2", val)} />
+                                                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                                                    <s-text-field label="First name" value={shippingAddress?.firstName ?? ""} error={getError("firstName")} onChange={(val) => updateField("firstName", val)} />
+                                                    <s-text-field label="Last name" value={shippingAddress?.lastName ?? ""} error={getError("lastName")} onChange={(val) => updateField("lastName", val)} />
+                                                </s-grid>
 
-                                    <s-select
-                                        label="State / Province"
-                                        value={shippingAddress?.provinceCode ?? shippingAddress?.province}
-                                        onChange={(val) => updateField("provinceCode", val)}
-                                    >
-                                        <s-option value="">Select State</s-option>
-                                        {(COUNTRY_STATES[selectedCountry] ?? []).map((state) => (
-                                            <s-option key={state.code} value={state.code}>{state.name}</s-option>
-                                        ))}
-                                    </s-select>
+                                                <s-text-field label="Address 1" value={shippingAddress?.address1 ?? ""} error={getError("address1")} onChange={(val) => updateField("address1", val)} />
+                                                <s-text-field label="Address 2" value={shippingAddress?.address2 ?? ""} error={getError("address2")} onChange={(val) => updateField("address2", val)} />
 
-                                    <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                                        <s-text-field
-                                            label="City"
-                                            value={shippingAddress?.city ?? ""}
-                                            error={addressErrors.find((e) => e.field?.includes("city"))?.message}
-                                            onChange={(val) => updateField("city", val)}
-                                        />
-                                        <s-text-field
-                                            label="Postal code"
-                                            value={shippingAddress?.zip ?? ""}
-                                            error={addressErrors.find((e) => e.field?.includes("zip") || e.field?.includes("postal"))?.message}
-                                            onChange={(val) => updateField("zip", val)}
-                                        />
-                                    </s-grid>
+                                                <s-select
+                                                    label="State / Province"
+                                                    value={shippingAddress?.provinceCode ?? shippingAddress?.province}
+                                                    error={getError("province")}
+                                                    onChange={(val) => updateField("provinceCode", val)}
+                                                >
+                                                    <s-option value="">Select State</s-option>
+                                                    {(COUNTRY_STATES[selectedCountry] ?? []).map((state) => (
+                                                        <s-option key={state.code} value={state.code}>{state.name}</s-option>
+                                                    ))}
+                                                </s-select>
+
+                                                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                                                    <s-text-field
+                                                        label="City"
+                                                        value={shippingAddress?.city ?? ""}
+                                                        error={getError("city")}
+                                                        onChange={(val) => updateField("city", val)}
+                                                    />
+                                                    <s-text-field
+                                                        label="Postal code"
+                                                        value={shippingAddress?.zip ?? ""}
+                                                        error={getError("zip") || getError("postal")}
+                                                        onChange={(val) => updateField("zip", val)}
+                                                    />
+                                                </s-grid>
+                                            </>
+                                        );
+                                    })()}
 
                                     <s-stack direction="inline" justifyContent="end">
                                         {hasAddressChanges() && (
@@ -1003,58 +1019,61 @@ function OrderStatusManager() {
                                         onChange={(val) => { handleProductSearch(val.target.value); }}
                                     />
 
-                                    {searchLoading ? (
-                                        <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
-                                            <s-box padding="large"><s-spinner size="small" /></s-box>
-                                        </s-stack>
-                                    ) : (
-                                        <>
-                                            {!searchLoading && visibleProducts.length === 0 && <s-text color="subdued">No products found.</s-text>}
-                                            {visibleProducts.map((p, i) => {
-                                                const edges = fullOrder?.lineItems?.edges ?? [];
-                                                // Handle both connection and flat variants structure
-                                                const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
-                                                const variantId = variantNode?.id ?? p.id;
-                                                const isAdded = edges.some((item) => item.variant_id === variantId || item.product_id === p.id);
-                                                const price = variantNode?.contextualPricing?.price?.amount || variantNode?.price || "0.00";
-                                                const itemCurrency = variantNode?.contextualPricing?.price?.currencyCode || currencyCode;
+                                    {/* Results area */}
+                                    <s-stack gap="base" direction="block">
+                                        {searchLoading ? (
+                                            <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
+                                                <s-box padding="large"><s-spinner size="small" /></s-box>
+                                            </s-stack>
+                                        ) : (
+                                            <>
+                                                {!searchLoading && visibleProducts.length === 0 && <s-text color="subdued">No products found.</s-text>}
+                                                {visibleProducts.map((p, i) => {
+                                                    const edges = fullOrder?.lineItems?.edges ?? [];
+                                                    const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
+                                                    const variantId = variantNode?.id ?? p.id;
+                                                    const isAdded = edges.some((item) => item.variant_id === variantId || item.product_id === p.id);
+                                                    const price = variantNode?.contextualPricing?.price?.amount || variantNode?.price || "0.00";
+                                                    const itemCurrency = variantNode?.contextualPricing?.price?.currencyCode || currencyCode;
 
-                                                return (
-                                                    <s-grid
-                                                        key={p.id ?? i}
-                                                        gridTemplateColumns="auto 1fr auto"
-                                                        gap="base"
-                                                        alignItems="center"
-                                                        padding="base"
-                                                        borderWidth="base"
-                                                        borderRadius="base"
-                                                    >
-                                                        <s-stack inlineSize="64px" blockSize="64px">
-                                                            <s-image
-                                                                src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"}
-                                                                alt={p?.title}
-                                                                inlineSize="fill"
-                                                                objectFit="contain"
-                                                            />
-                                                        </s-stack>
-                                                        <s-stack gap="small-100" direction="block">
-                                                            <s-text tone="bold">{p?.title}</s-text>
-                                                            {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
-                                                            <s-text>{formatPrice(price, itemCurrency)}</s-text>
-                                                        </s-stack>
-                                                        <s-button
-                                                            variant={isAdded ? "secondary" : "primary"}
-                                                            tone={isAdded ? "critical" : undefined}
-                                                            onClick={() => toggleAddProduct(p)}
+                                                    return (
+                                                        <s-grid
+                                                            key={p.id ?? i}
+                                                            gridTemplateColumns="auto 1fr auto"
+                                                            gap="base"
+                                                            alignItems="center"
+                                                            padding="base"
+                                                            borderWidth="base"
+                                                            borderRadius="base"
                                                         >
-                                                            {isAdded ? "Remove" : "Add product"}
-                                                        </s-button>
-                                                    </s-grid>
-                                                );
-                                            })}
-                                        </>
-                                    )}
+                                                            <s-stack inlineSize="64px" blockSize="64px">
+                                                                <s-image
+                                                                    src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"}
+                                                                    alt={p?.title}
+                                                                    inlineSize="fill"
+                                                                    objectFit="contain"
+                                                                />
+                                                            </s-stack>
+                                                            <s-stack gap="small-100" direction="block">
+                                                                <s-text tone="bold">{p?.title}</s-text>
+                                                                {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
+                                                                <s-text>{formatPrice(price, itemCurrency)}</s-text>
+                                                            </s-stack>
+                                                            <s-button
+                                                                variant={isAdded ? "secondary" : "primary"}
+                                                                tone={isAdded ? "critical" : undefined}
+                                                                onClick={() => toggleAddProduct(p)}
+                                                            >
+                                                                {isAdded ? "Remove" : "Add product"}
+                                                            </s-button>
+                                                        </s-grid>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                    </s-stack>
 
+                                    {/* Pagination (Always below results) */}
                                     {products_list.length > pageSize && (
                                         <s-stack direction="inline" gap="base" alignItems="center" justifyContent="center">
                                             <s-button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</s-button>
@@ -1063,6 +1082,7 @@ function OrderStatusManager() {
                                         </s-stack>
                                     )}
 
+                                    {/* Action Button (Always at the very bottom) */}
                                     <s-stack direction="inline" justifyContent="end">
                                         {hasLineItemsChanges() && (
                                             <s-button variant="primary" loading={isAddingProducts} onClick={() => handleOrderEdit("add")}>Save changes</s-button>
@@ -1086,36 +1106,42 @@ function OrderStatusManager() {
                         value={productSearchQuery}
                         onChange={(val) => { setPage(0); handleProductSearch(val.target.value); }}
                     />
-                    {searchLoading ? (
-                        <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
-                            <s-box padding="large"><s-spinner size="large-100" /></s-box>
-                        </s-stack>
-                    ) : (
-                        visibleProducts.map((p, i) => {
-                            const edges = fullOrder?.lineItems?.edges ?? [];
-                            const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
-                            const variantId = variantNode?.id ?? p.id;
-                            const isReplaced = edges[replaceIndex]?.replaced_with &&
-                                String(edges[replaceIndex].replaced_with.variant_id) === String(variantId);
-                            const price = variantNode?.contextualPricing?.price?.amount || variantNode?.price || "0.00";
-                            const itemCurrency = variantNode?.contextualPricing?.price?.currencyCode || currencyCode;
-                            return (
-                                <s-grid key={p.id ?? i} gridTemplateColumns="auto 1fr auto" gap="base" alignItems="center" padding="base" borderWidth="base" borderRadius="base">
-                                    <s-stack inlineSize="64px" blockSize="64px">
-                                        <s-image src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={p?.title} inlineSize="fill" objectFit="contain" />
-                                    </s-stack>
-                                    <s-stack gap="small-500" direction="block">
-                                        <s-text>{p?.title}</s-text>
-                                        {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
-                                        <s-text>{formatPrice(price, itemCurrency)}</s-text>
-                                    </s-stack>
-                                    <s-button variant={isReplaced ? "secondary" : "primary"} tone={isReplaced ? "critical" : undefined} onClick={() => toggleReplace(replaceIndex, p)}>
-                                        {isReplaced ? "Undo replace" : "Replace with this"}
-                                    </s-button>
-                                </s-grid>
-                            );
-                        })
-                    )}
+
+                    {/* Results area */}
+                    <s-stack gap="base" direction="block">
+                        {searchLoading ? (
+                            <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
+                                <s-box padding="large"><s-spinner size="large-100" /></s-box>
+                            </s-stack>
+                        ) : (
+                            visibleProducts.map((p, i) => {
+                                const edges = fullOrder?.lineItems?.edges ?? [];
+                                const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
+                                const variantId = variantNode?.id ?? p.id;
+                                const isReplaced = edges[replaceIndex]?.replaced_with &&
+                                    String(edges[replaceIndex].replaced_with.variant_id) === String(variantId);
+                                const price = variantNode?.contextualPricing?.price?.amount || variantNode?.price || "0.00";
+                                const itemCurrency = variantNode?.contextualPricing?.price?.currencyCode || currencyCode;
+                                return (
+                                    <s-grid key={p.id ?? i} gridTemplateColumns="auto 1fr auto" gap="base" alignItems="center" padding="base" borderWidth="base" borderRadius="base">
+                                        <s-stack inlineSize="64px" blockSize="64px">
+                                            <s-image src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={p?.title} inlineSize="fill" objectFit="contain" />
+                                        </s-stack>
+                                        <s-stack gap="small-500" direction="block">
+                                            <s-text>{p?.title}</s-text>
+                                            {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
+                                            <s-text>{formatPrice(price, itemCurrency)}</s-text>
+                                        </s-stack>
+                                        <s-button variant={isReplaced ? "secondary" : "primary"} tone={isReplaced ? "critical" : undefined} onClick={() => toggleReplace(replaceIndex, p)}>
+                                            {isReplaced ? "Undo replace" : "Replace with this"}
+                                        </s-button>
+                                    </s-grid>
+                                );
+                            })
+                        )}
+                    </s-stack>
+
+                    {/* Pagination (Always below results) */}
                     {products_list.length > pageSize && (
                         <s-stack direction="inline" gap="base" alignItems="center" justifyContent="center">
                             <s-button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</s-button>
@@ -1123,6 +1149,8 @@ function OrderStatusManager() {
                             <s-button variant="secondary" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>›</s-button>
                         </s-stack>
                     )}
+
+                    {/* Action Button (Stays at the bottom) */}
                     <s-stack direction="inline" justifyContent="end">
                         <s-button variant="primary" command="--hide" commandFor="replacePanelModal" slot="primary-action" onClick={() => setReplaceIndex(null)}>
                             Apply Changes

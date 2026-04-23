@@ -36,7 +36,27 @@ export default function DashboardPage() {
   }, [])
 
   if (isExtensionsLoading) {
-    return null
+    return (
+      <s-page>
+        <s-section>
+          <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
+             {[1,2,3].map(i => (
+               <s-box key={i} paddingBlock="small-400" paddingInline="small-100" borderRadius="base" border="all">
+                 <s-grid gap="small-300">
+                   <s-skeleton-display-text size="small" />
+                   <s-skeleton-display-text size="large" />
+                 </s-grid>
+               </s-box>
+             ))}
+          </s-grid>
+        </s-section>
+        <s-section>
+          <s-box paddingBlock="large-400">
+             <s-skeleton-body-text lines={10} />
+          </s-box>
+        </s-section>
+      </s-page>
+    );
   }
   console.log(shopify)
   return (
@@ -85,7 +105,6 @@ export default function DashboardPage() {
               <s-heading variant="headingMd">Total Edits</s-heading>
               <s-stack direction="inline" gap="small-200" alignItems="center">
                 <s-text variant="headingLg">{metrics?.totalEdits || 0}</s-text>
-                <s-badge tone="info">Lifetime</s-badge>
               </s-stack>
             </s-grid>
           </s-clickable>
@@ -129,54 +148,74 @@ export default function DashboardPage() {
           </s-clickable>
         </s-grid>
       </s-section>
-
-      <s-section>
-        <s-stack gap="base">
-          <s-heading>Recent Activity</s-heading>
-          <s-box padding="base" border="all" borderRadius="base">
-            <s-stack gap="base">
-              {activities && activities.length > 0 ? (
-                activities.map((activity) => (
-                  <s-box key={activity.id}>
-                    <s-grid gridTemplateColumns="auto 1fr auto" gap="base" alignItems="center">
-                      <s-box padding="extraTight" background="surface-secondary" borderRadius="base">
-                        <s-icon 
-                          source={
-                            activity.type === "ADDRESS_UPDATE" ? "location" :
-                            activity.type === "PHONE_UPDATE" ? "phone" :
-                            activity.type === "ITEM_UPDATE" ? "products" : "notification"
-                          } 
-                          tone="info" 
-                          size="small" 
-                        />
-                      </s-box>
-                      <s-stack gap="none">
-                        <s-text tone="bold">{activity.message}</s-text>
-                      </s-stack>
-                      <s-button 
-                        variant="tertiary" 
-                        icon="external" 
-                        href={`shopify:admin/orders/${activity.orderId.split("/").pop()}`}
-                      />
-                    </s-grid>
-                    <s-box paddingBlockStart="base">
-                         <s-divider />
-                    </s-box>
-                  </s-box>
-                ))
-              ) : (
-                <s-box padding="loose" display="flex" justifyContent="center">
-                  <s-stack gap="base" alignItems="center">
-                    <s-icon source="notification" tone="subdued" />
-                    <s-text color="subdued">No activity yet. When customers edit orders, they'll appear here.</s-text>
-                  </s-stack>
-                </s-box>
-              )}
-            </s-stack>
+      {activities && activities.length > 0 ?
+        <s-section padding="none">
+          <s-box padding="base">
+            <s-heading>Recent Activity</s-heading>
           </s-box>
-        </s-stack>
-      </s-section>
-
+          <s-table >
+            <s-table-header-row>
+              <s-table-header listSlot="primary">Order</s-table-header>
+              <s-table-header>Activity</s-table-header>
+            </s-table-header-row>
+            <s-table-body>
+              {activities.slice(0, 10).map((activity) => (
+                <s-table-row key={activity.id}>
+                  <s-table-cell>
+                    <s-link href={`shopify:admin/orders/${activity.orderId.split("/").pop()}`}>
+                      {activity.orderName || activity.orderId.split("/").pop()}
+                    </s-link>
+                  </s-table-cell>
+                  <s-table-cell>
+                    <s-stack direction="inline" gap="extraTight" alignItems="center">
+                      <s-badge tone="info">{activity.message}</s-badge>
+                    </s-stack>
+                  </s-table-cell>
+                </s-table-row>
+              ))
+              }
+            </s-table-body>
+          </s-table>
+        </s-section>
+        :
+        <s-section accessibilityLabel="Empty state section">
+          <s-box padding="base">
+            <s-heading>Recent Activity</s-heading>
+          </s-box>
+          <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
+            <s-box maxInlineSize="200px" maxBlockSize="200px">
+              {/* aspectRatio should match the actual image dimensions (width/height) */}
+              <s-image
+                aspectRatio="1/0.5"
+                src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
+                alt="A stylized graphic of four characters, each holding a puzzle piece"
+              />
+            </s-box>
+            <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
+              <s-stack alignItems="center">
+                <s-heading>Start creating puzzles</s-heading>
+                <s-paragraph>
+                  Create and manage your collection of puzzles for players to
+                  enjoy.
+                </s-paragraph>
+              </s-stack>
+              <s-button-group>
+                <s-button
+                  slot="secondary-actions"
+                  accessibilityLabel="Learn more about creating puzzles"
+                >
+                  {" "}
+                  Learn more{" "}
+                </s-button>
+                <s-button slot="primary-action" accessibilityLabel="Add a new puzzle">
+                  {" "}
+                  Create puzzle{" "}
+                </s-button>
+              </s-button-group>
+            </s-grid>
+          </s-grid>
+        </s-section>
+      }
       <s-section>
         <s-grid
           gridTemplateColumns="1fr auto"
