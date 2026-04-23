@@ -3,6 +3,7 @@ import { useLoaderData, useOutletContext } from "react-router";
 
 export default function DashboardPage() {
   const { config } = useOutletContext();
+  const { activities, metrics } = useLoaderData();
   const [visible, setVisible] = useState({
     banner: true,
     setupGuide: true,
@@ -71,62 +72,111 @@ export default function DashboardPage() {
         </s-banner>
       )}
 
-      {/* Metrics cards */}
-      <s-section padding="base">
-        <s-grid
-          gridTemplateColumns="@container (inline-size <= 400px) 1fr, 1fr auto 1fr auto 1fr"
-          gap="small"
-        >
+      {/* Metrics Cards */}
+      <s-section>
+        <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
           <s-clickable
-            href="#"
             paddingBlock="small-400"
             paddingInline="small-100"
             borderRadius="base"
+            border="all"
           >
             <s-grid gap="small-300">
-              <s-heading>Total Designs</s-heading>
-              <s-stack direction="inline" gap="small-200">
-                <s-text>156</s-text>
-                <s-badge tone="success" icon="arrow-up">
-                  12%
-                </s-badge>
+              <s-heading variant="headingMd">Total Edits</s-heading>
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-text variant="headingLg">{metrics?.totalEdits || 0}</s-text>
+                <s-badge tone="info">Lifetime</s-badge>
               </s-stack>
             </s-grid>
           </s-clickable>
-          <s-divider direction="block" />
+
           <s-clickable
-            href="#"
             paddingBlock="small-400"
             paddingInline="small-100"
             borderRadius="base"
+            border="all"
           >
             <s-grid gap="small-300">
-              <s-heading>Units Sold</s-heading>
-              <s-stack direction="inline" gap="small-200">
-                <s-text>2,847</s-text>
-                <s-badge tone="warning">0%</s-badge>
+              <s-heading variant="headingMd">Edits Today</s-heading>
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-text variant="headingLg">{metrics?.todayEdits || 0}</s-text>
+                {metrics?.change >= 0 ? (
+                  <s-badge tone="success" icon="arrow-up">
+                    {metrics?.change}%
+                  </s-badge>
+                ) : (
+                  <s-badge tone="critical" icon="arrow-down">
+                    {Math.abs(metrics?.change)}%
+                  </s-badge>
+                )}
               </s-stack>
             </s-grid>
           </s-clickable>
-          <s-divider direction="block" />
+
           <s-clickable
-            href="#"
             paddingBlock="small-400"
             paddingInline="small-100"
             borderRadius="base"
+            border="all"
           >
             <s-grid gap="small-300">
-              <s-heading>Return Rate</s-heading>
-              <s-stack direction="inline" gap="small-200">
-                <s-text>3.2%</s-text>
-                <s-badge tone="critical" icon="arrow-down">
-                  0.8%
-                </s-badge>
+              <s-heading variant="headingMd">Yesterday</s-heading>
+              <s-stack direction="inline" gap="small-200" alignItems="center">
+                <s-text variant="headingLg">{metrics?.yesterdayEdits || 0}</s-text>
+                <s-text color="subdued" variant="bodySm">Previous day</s-text>
               </s-stack>
             </s-grid>
           </s-clickable>
         </s-grid>
       </s-section>
+
+      <s-section>
+        <s-stack gap="base">
+          <s-heading>Recent Activity</s-heading>
+          <s-box padding="base" border="all" borderRadius="base">
+            <s-stack gap="base">
+              {activities && activities.length > 0 ? (
+                activities.map((activity) => (
+                  <s-box key={activity.id}>
+                    <s-grid gridTemplateColumns="auto 1fr auto" gap="base" alignItems="center">
+                      <s-box padding="extraTight" background="surface-secondary" borderRadius="base">
+                        <s-icon 
+                          source={
+                            activity.type === "ADDRESS_UPDATE" ? "location" :
+                            activity.type === "PHONE_UPDATE" ? "phone" :
+                            activity.type === "ITEM_UPDATE" ? "products" : "notification"
+                          } 
+                          tone="info" 
+                          size="small" 
+                        />
+                      </s-box>
+                      <s-stack gap="none">
+                        <s-text tone="bold">{activity.message}</s-text>
+                      </s-stack>
+                      <s-button 
+                        variant="tertiary" 
+                        icon="external" 
+                        href={`shopify:admin/orders/${activity.orderId.split("/").pop()}`}
+                      />
+                    </s-grid>
+                    <s-box paddingBlockStart="base">
+                         <s-divider />
+                    </s-box>
+                  </s-box>
+                ))
+              ) : (
+                <s-box padding="loose" display="flex" justifyContent="center">
+                  <s-stack gap="base" alignItems="center">
+                    <s-icon source="notification" tone="subdued" />
+                    <s-text color="subdued">No activity yet. When customers edit orders, they'll appear here.</s-text>
+                  </s-stack>
+                </s-box>
+              )}
+            </s-stack>
+          </s-box>
+        </s-stack>
+      </s-section>
+
       <s-section>
         <s-grid
           gridTemplateColumns="1fr auto"

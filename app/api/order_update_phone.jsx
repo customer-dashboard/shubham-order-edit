@@ -1,5 +1,5 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { updateOrderPhone } from "../server/graphql";
+import { updateOrderPhone, logActivity } from "../server/graphql";
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -42,6 +42,7 @@ export const action = async ({ request }) => {
     };
 
     const responseJson = await updateOrderPhone(admin, input);
+    const orderName = UpdatedData.orderName || `#${UpdatedData.orderId.split("/").pop()}`;
 
     if (responseJson.error) {
       throw new Error(responseJson.error);
@@ -53,6 +54,14 @@ export const action = async ({ request }) => {
         error: `Phone update failed: ${payload.userErrors.map(e => e.message).join(", ")}`
       }), { status: 400 }));
     }
+
+    // Log Activity
+    await logActivity(admin, shopDomain, {
+      type: "PHONE_UPDATE",
+      orderId: UpdatedData.orderId,
+      orderName: orderName,
+      message: `Phone updated — Order ${orderName}`
+    });
 
     return cors(new Response(JSON.stringify({
       status: 200,

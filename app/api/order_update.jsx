@@ -1,5 +1,5 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { orderEditBegin, orderEditAddVariant, orderEditCommit, orderEditSetQuantity } from "../server/graphql";
+import { orderEditBegin, orderEditAddVariant, orderEditCommit, orderEditSetQuantity, logActivity } from "../server/graphql";
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -104,6 +104,29 @@ export const action = async ({ request }) => {
       if (commitRes.data?.orderEditCommit?.userErrors?.length > 0) {
         return cors(new Response(JSON.stringify({ status: 400, error: commitRes.data.orderEditCommit.userErrors[0].message }), { status: 400 }));
       }
+
+      // Log Activity
+      const orderName = body.orderName || `#${orderId.split("/").pop()}`;
+      let activityType = "ORDER_UPDATE";
+      let activityMsg = `Order updated — Order ${orderName}`;
+
+      if (removed_line_items.length > 0) {
+        activityType = "ITEM_REMOVED";
+        activityMsg = `Item removed — Order ${orderName}`;
+      } else if (added_line_items.length > 0) {
+        activityType = "PRODUCT_ADDED";
+        activityMsg = `Product added — Order ${orderName}`;
+      } else if (replacements.length > 0) {
+        activityType = "ITEM_REPLACED";
+        activityMsg = `Item replaced — Order ${orderName}`;
+      }
+
+      await logActivity(admin, shopDomain, {
+        type: activityType,
+        orderId: orderId,
+        orderName: orderName,
+        message: activityMsg
+      });
 
       return cors(new Response(JSON.stringify({ status: 200, data: commitRes.data.orderEditCommit.order })));
     }

@@ -715,6 +715,7 @@ export async function getCodeDiscountByCode(admin, code) {
   }
 }
 
+
 export async function orderEditAddLineItemDiscount(admin, calculatedOrderId, lineItemId, discount) {
   try {
     const response = await admin.graphql(
@@ -742,6 +743,92 @@ export async function orderEditAddLineItemDiscount(admin, calculatedOrderId, lin
   } catch (error) {
     console.error("Error in orderEditAddLineItemDiscount utility:", error);
     return { error: error.message };
+  }
+}
+
+/**
+ * Log activity to Metafield and MongoDB
+ */
+import { logActivityToDB } from "../mongodb.server";
+
+export async function logActivity(admin, shop, activity) {
+  try {
+    // 1. Log to DB
+    await logActivityToDB(shop, activity).catch(e => console.error("DB Log Error:", e));
+
+    // 2. Log to Metafield
+    const shopResponse = await admin.graphql(`{ shop { id metafield(namespace: "order_editing", key: "recent_activity") { value } } }`);
+    const shopData = await shopResponse.json();
+    const shopGid = shopData.data.shop.id;
+    const existingValue = shopData.data.shop.metafield?.value;
+    
+    let activities = [];
+    if (existingValue) {
+      try {
+        activities = JSON.parse(existingValue);
+      } catch (e) {
+        activities = [];
+      }
+    }
+
+    // Add new activity to the start
+    activities.unshift({
+      ...activity,
+      id: Math.random().toString(36).substr(2, 9),
+      timestamp: new Date().toISOString()
+    });
+
+    // Keep only last 10 for metafield (for performance)
+    activities = activities.slice(0, 10);
+
+    await admin.graphql(
+      `#graphql
+      mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields { key value }
+          userErrors { field message }
+        }
+      }`,
+      {
+        variables: {
+          metafields: [
+            {
+              key: "recent_activity",
+              namespace: "order_editing",
+              ownerId: shopGid,
+              type: "json",
+              value: JSON.stringify(activities),
+            },
+          ],
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+}
+
+/**
+ * Get recent activity from Metafield
+ */
+export async function getRecentActivity(admin) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getRecentActivity {
+        shop {
+          metafield(namespace: "order_editing", key: "recent_activity") {
+            value
+          }
+        }
+      }`
+    );
+    const result = await response.json();
+    const value = result.data?.shop?.metafield?.value;
+    return value ? JSON.parse(value) : [];
+  } catch (error) {
+    console.error("Error fetching recent activity:", error);
+    return [];
   }
 }
 

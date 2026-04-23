@@ -1,5 +1,5 @@
 import { authenticate, unauthenticated } from "../shopify.server";
-import { orderInvoiceSend } from "../server/graphql";
+import { orderInvoiceSend, logActivity } from "../server/graphql";
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -25,6 +25,7 @@ export const action = async ({ request }) => {
     if (option.includes("email")) {
       const { admin } = await unauthenticated.admin(shopDomain);
       const responseJson = await orderInvoiceSend(admin, orderId, email);
+      const orderName = body.orderName || `#${orderId.split("/").pop()}`;
 
       if (responseJson.error) {
         throw new Error(responseJson.error);
@@ -34,6 +35,14 @@ export const action = async ({ request }) => {
       if (payload?.userErrors?.length) {
         throw new Error(`Invoice send failed: ${JSON.stringify(payload.userErrors)}`);
       }
+
+      // Log Activity
+      await logActivity(admin, shopDomain, {
+        type: "INVOICE_SENT",
+        orderId: orderId,
+        orderName: orderName,
+        message: `Invoice sent — Order ${orderName}`
+      });
 
       return cors(new Response(JSON.stringify({
         message: `Invoice sent successfully to ${email || "customer"}.`

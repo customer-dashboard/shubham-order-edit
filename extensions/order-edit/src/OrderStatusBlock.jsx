@@ -9,7 +9,7 @@ export default async () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://timber-remarks-indirect-chest.trycloudflare.com";
+const BASEURL = "https://interference-volunteer-lid-tabs.trycloudflare.com";
 
 function OrderStatusManager() {
     const { edit_address, edit_phone, apply_discount, download_invoice, delivery_instructions, edit_order_lines, add_products } = shopify.settings.value;

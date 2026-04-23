@@ -17,6 +17,7 @@ if (process.env.NODE_ENV === "production") {
 
 const db = mongodb.db(DB_NAME);
 const storePlans = db.collection(COLLECTION_NAME);
+const activities = db.collection("activity");
 
 /**
  * Save or update a subscription for a shop.
@@ -49,6 +50,17 @@ export async function getSubscription(shop) {
 }
 
 /**
+ * log activity to mongodb
+ */
+export async function logActivityToDB(shop, activity) {
+  return await activities.insertOne({
+    shop,
+    ...activity,
+    createdAt: new Date(),
+  });
+}
+
+/**
  * Cancel subscription for a shop (usually on uninstall or plan change).
  */
 export async function cancelSubscription(shop) {
@@ -58,4 +70,4 @@ export async function cancelSubscription(shop) {
   );
 }
 
-export { mongodb, db, storePlans };
+export { mongodb, db, storePlans, activities };
