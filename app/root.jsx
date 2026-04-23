@@ -1,4 +1,9 @@
 import { Links, Meta, Outlet, Scripts, ScrollRestoration, useLoaderData } from "react-router";
+import globalStyles from "./styles/global.css?url";
+
+export const links = () => [
+  { rel: "stylesheet", href: globalStyles },
+];
 
 export const loader = async () => {
   return { apiKey: process.env.SHOPIFY_API_KEY || "" };

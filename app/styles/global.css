@@ -1,0 +1,67 @@
+/* Global Styles for Order Edit App */
+
+:root {
+  --primary-color: #008060;
+  --bg-surface: #ffffff;
+  --bg-surface-secondary: #f6f6f7;
+  --text-main: #202223;
+  --text-subdued: #6d7175;
+  --border-color: #e1e3e5;
+  --radius-base: 8px;
+  --shadow-base: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  color: var(--text-main);
+  background-color: var(--bg-surface-secondary);
+}
+
+/* Premium Heading Styling */
+.oredt_heading .heading {
+  font-weight: 700;
+  font-size: 15px !important;
+  line-height: normal;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+/* Custom classes for spacing and layout */
+.mt-1 {
+  margin-top: 4px;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.mb-1 {
+  margin-bottom: 4px;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.p-4 {
+  padding: 16px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+
+/* Heading specific style was consolidated above */
+
+/* Add your custom styles below */
