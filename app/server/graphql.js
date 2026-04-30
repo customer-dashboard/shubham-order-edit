@@ -1,4 +1,5 @@
 // import { billingConfig } from "../../app/routes/billing";
+import { DEFAULT_APP_SETTINGS } from "../constants/defaultSettings";
 
 export async function getStoreLanguages(graphql) {
   const locals = await graphql(`
@@ -186,6 +187,44 @@ export async function getAppConfig(admin) {
   } catch (error) {
     console.error("Error fetching app config:", error);
     return null;
+  }
+}
+
+export async function getAppSettings(admin) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      query getAppSettingsMetafield {
+        shop {
+          id
+          metafield(namespace: "custlo_app", key: "app_settings") {
+            value
+          }
+        }
+      }`
+    );
+    const result = await response.json();
+    const value = result.data?.shop?.metafield?.value;
+    
+    let currentSettings = {};
+    if (value) {
+      try {
+        currentSettings = JSON.parse(value);
+      } catch (e) {
+        console.error("Error parsing app_settings JSON:", e);
+      }
+    }
+
+    // Merge with defaults: if a key is missing in currentSettings, use the one from DEFAULT_APP_SETTINGS
+    const mergedSettings = {
+      ...DEFAULT_APP_SETTINGS,
+      ...currentSettings,
+    };
+
+    return mergedSettings;
+  } catch (error) {
+    console.error("Error fetching app settings:", error);
+    return DEFAULT_APP_SETTINGS;
   }
 }
 

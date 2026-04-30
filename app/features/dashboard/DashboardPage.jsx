@@ -1,41 +1,76 @@
 import { useEffect, useState } from "react";
-import { useLoaderData, useOutletContext } from "react-router";
 
 export default function DashboardPage() {
-  const { config } = useOutletContext();
-  const { activities, metrics } = useLoaderData();
+  const [activities, setActivities] = useState([]);
+  const [metrics, setMetrics] = useState({ totalEdits: 0, todayEdits: 0, yesterdayEdits: 0, change: 0 });
+  const [shopName, setShopName] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [isOrderEditActive, setIsOrderEditActive] = useState(false);
+  const [isExtensionsLoading, setIsExtensionsLoading] = useState(true);
+
   const [visible, setVisible] = useState({
     banner: true,
     setupGuide: true,
     calloutCard: true,
     featuredApps: true,
   });
-  const [isOrderEditActive, setIsOrderEditActive] = useState(false);
-  const [isExtensionsLoading, setIsExtensionsLoading] = useState(true);
 
   useEffect(() => {
     const loaddata = async () => {
       shopify.loading(true)
       try {
+        // Direct API Access for Shopify Data
+        const shopPromise = fetch('shopify:admin/api/graphql.json', {
+          method: 'POST',
+          body: JSON.stringify({ query: `query { shop { name } }` })
+        }).then(r => r.json());
+
+        // Independent Backend calls for MongoDB Data
+        const metricsPromise = fetch('/app/fetch-data', {
+          method: 'POST',
+          body: (() => {
+            const fd = new FormData();
+            fd.append("_action", "GET_DASHBOARD_METRICS");
+            return fd;
+          })()
+        }).then(r => r.json());
+
+        const activitiesPromise = fetch('/app/fetch-data', {
+          method: 'POST',
+          body: (() => {
+            const fd = new FormData();
+            fd.append("_action", "GET_RECENT_ACTIVITY");
+            return fd;
+          })()
+        }).then(r => r.json());
+
+        const [shopResp, metricsResp, activitiesResp] = await Promise.all([
+          shopPromise,
+          metricsPromise,
+          activitiesPromise
+        ]);
+
+        if (shopResp.data?.shop) setShopName(shopResp.data.shop.name);
+        if (metricsResp.data?.metrics) setMetrics(metricsResp.data.metrics);
+        if (activitiesResp.data?.activities) setActivities(activitiesResp.data.activities);
+
+        // App Bridge Extensions API
         const shopss = await shopify.app.extensions();
-        console.log(shopss)
         const result = shopss.find(item => item.handle === "order-edit");
-        if (result && result.activations.length > 0) {
-          setIsOrderEditActive(true)
-        } else {
-          setIsOrderEditActive(false)
-        }
+        setIsOrderEditActive(!!(result && result.activations.length > 0));
+
       } catch (error) {
-        console.error("Error fetching extensions:", error);
+        console.error("Error loading dashboard data:", error);
       } finally {
         shopify.loading(false)
         setIsExtensionsLoading(false);
+        setLoading(false);
       }
     }
     loaddata()
   }, [])
 
-  if (isExtensionsLoading) {
+  if (loading || isExtensionsLoading) {
     return (
       <s-page>
         <s-section>
@@ -58,9 +93,9 @@ export default function DashboardPage() {
       </s-page>
     );
   }
-  console.log(shopify)
+
   return (
-    <s-page>
+    <s-page heading={`Welcome, ${shopName}`}>
       {isOrderEditActive ? (
         <s-banner
           heading="Order edits are active"
@@ -148,7 +183,8 @@ export default function DashboardPage() {
           </s-clickable>
         </s-grid>
       </s-section>
-      {activities && activities.length > 0 ?
+
+      {activities && activities.length > 0 ? (
         <s-section padding="none">
           <s-box padding="base">
             <s-heading>Recent Activity</s-heading>
@@ -162,8 +198,8 @@ export default function DashboardPage() {
               {activities.slice(0, 10).map((activity) => (
                 <s-table-row key={activity.id}>
                   <s-table-cell>
-                    <s-link href={`shopify:admin/orders/${activity.orderId.split("/").pop()}`}>
-                      {activity.orderName || activity.orderId.split("/").pop()}
+                    <s-link href={`shopify:admin/orders/${activity.orderId?.split("/").pop()}`}>
+                      {activity.orderName || activity.orderId?.split("/").pop()}
                     </s-link>
                   </s-table-cell>
                   <s-table-cell>
@@ -172,50 +208,36 @@ export default function DashboardPage() {
                     </s-stack>
                   </s-table-cell>
                 </s-table-row>
-              ))
-              }
+              ))}
             </s-table-body>
           </s-table>
         </s-section>
-        :
+      ) : (
         <s-section accessibilityLabel="Empty state section">
           <s-box padding="base">
             <s-heading>Recent Activity</s-heading>
           </s-box>
           <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
             <s-box maxInlineSize="200px" maxBlockSize="200px">
-              {/* aspectRatio should match the actual image dimensions (width/height) */}
               <s-image
                 aspectRatio="1/0.5"
                 src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
-                alt="A stylized graphic of four characters, each holding a puzzle piece"
+                alt="Empty state graphic"
               />
             </s-box>
             <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
               <s-stack alignItems="center">
-                <s-heading>Start creating puzzles</s-heading>
+                <s-heading>No activity yet</s-heading>
                 <s-paragraph>
-                  Create and manage your collection of puzzles for players to
-                  enjoy.
+                  When orders are edited, they will appear here.
                 </s-paragraph>
               </s-stack>
-              <s-button-group>
-                <s-button
-                  slot="secondary-actions"
-                  accessibilityLabel="Learn more about creating puzzles"
-                >
-                  {" "}
-                  Learn more{" "}
-                </s-button>
-                <s-button slot="primary-action" accessibilityLabel="Add a new puzzle">
-                  {" "}
-                  Create puzzle{" "}
-                </s-button>
-              </s-button-group>
             </s-grid>
           </s-grid>
         </s-section>
-      }
+      )}
+
+      {/* Recommended Apps Section */}
       <s-section>
         <s-grid
           gridTemplateColumns="1fr auto"
@@ -223,91 +245,33 @@ export default function DashboardPage() {
           paddingBlockEnd="small-400"
         >
           <s-heading>Recommended apps</s-heading>
-          <s-button
-            onClick={() => setVisible({ ...visible, featuredApps: false })}
-            icon="x"
-            tone="neutral"
-            variant="tertiary"
-            accessibilityLabel="Dismiss featured apps section"
-          ></s-button>
         </s-grid>
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(240px, 1fr))"
           gap="base"
         >
           <s-clickable
-            href="https://apps.shopify.com/flow"
+            href="https://apps.shopify.com/customer-dashboard-pro"
             border="base"
             borderRadius="base"
             padding="base"
             inlineSize="100%"
-            accessibilityLabel="Download Shopify Flow"
           >
-            <s-grid
-              gridTemplateColumns="auto 1fr auto"
-              alignItems="stretch"
-              gap="base"
-            >
+            <s-grid gridTemplateColumns="auto 1fr auto" alignItems="stretch" gap="base">
               <s-thumbnail
                 size="small"
                 src="https://cdn.shopify.com/s/files/1/0667/0067/3266/files/Custlo_logo_design020.png?v=1749099271"
-                alt="Shopify Flow icon"
+                alt="Custlo icon"
               />
               <s-box>
                 <s-heading>Custlo : Customer Account Pro</s-heading>
-                <s-paragraph>Free trial available.</s-paragraph>
-                <s-paragraph>
-                  Custlo is built for customizing the look and feel of the customer account page by adding custom fields, custom menus, delivery addresses, order history etc...
-                </s-paragraph>
+                <s-paragraph>Customize the customer account page with ease.</s-paragraph>
               </s-box>
-              <s-stack justifyContent="start">
-                <s-button
-                  href="https://apps.shopify.com/customer-dashboard-pro"
-                  icon="download"
-                  accessibilityLabel="Download Shopify Flow"
-                />
-              </s-stack>
-            </s-grid>
-          </s-clickable>
-          {/* Featured app 2 */}
-          <s-clickable
-            href="https://apps.shopify.com/planet"
-            border="base"
-            borderRadius="base"
-            padding="base"
-            inlineSize="100%"
-            accessibilityLabel="Download Shopify Planet"
-          >
-            <s-grid
-              gridTemplateColumns="auto 1fr auto"
-              alignItems="stretch"
-              gap="base"
-            >
-              <s-thumbnail
-                size="small"
-                src="https://cdn.shopify.com/app-store/listing_images/f0744aa7ec85f7d412692b264a7613a6/icon/CPuq3peN44EDEAE=.png"
-                alt="Shopify Planet icon"
-              />
-              <s-box>
-                <s-heading>Checkout Extensions Pro</s-heading>
-                <s-paragraph>Free trial available.</s-paragraph>
-                <s-paragraph>
-                  Customize checkout pages: upsells, content widgets, surveys and more with checkout extensions
-                </s-paragraph>
-              </s-box>
-              <s-stack justifyContent="start">
-                <s-button
-                  href="https://apps.shopify.com/checkout-extensions-pro"
-                  icon="download"
-                  accessibilityLabel="Download Shopify Planet"
-                />
-              </s-stack>
             </s-grid>
           </s-clickable>
         </s-grid>
       </s-section>
 
-      {/* Footer help */}
       <s-stack alignItems="center" paddingBlock="large">
         <s-text color="subdued">
           Learn more about <s-link href="https://help.shopify.com" target="_blank">Order Editing</s-link>.

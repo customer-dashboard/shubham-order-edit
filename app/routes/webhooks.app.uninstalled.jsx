@@ -1,21 +1,20 @@
 import { authenticate, sessionStorage } from "../shopify.server";
-import { cancelSubscription } from "../mongodb.server";
+import { logUninstallation } from "../mongodb.server";
 
 export const action = async ({ request }) => {
-  const { shop, session, topic } = await authenticate.webhook(request);
+  const { shop, session, topic, payload } = await authenticate.webhook(request);
 
   console.log(`Received ${topic} webhook for ${shop}`);
 
-  // Cancel subscription in MongoDB
+  // 1. Mark subscription as uninstalled and log activity in MongoDB
   try {
-    await cancelSubscription(shop);
-    console.log(`Cancelled subscription for ${shop} in MongoDB`);
+    await logUninstallation(shop, payload);
+    console.log(`Logged uninstallation for ${shop}`);
   } catch (e) {
-    console.error(`Failed to cancel subscription for ${shop} in MongoDB:`, e);
+    console.error(`Failed to log uninstallation for ${shop}:`, e);
   }
 
-  // Webhook requests can trigger multiple times and after an app has already been uninstalled.
-  // If this webhook already ran, the session may have been deleted previously.
+  // 2. Clean up sessions
   if (session) {
     const sessions = await sessionStorage.findSessionsByShop(shop);
     const sessionIds = sessions.map((s) => s.id);

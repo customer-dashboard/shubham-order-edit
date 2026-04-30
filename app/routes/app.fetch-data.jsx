@@ -1,5 +1,6 @@
 import { authenticate } from "../shopify.server";
 import { getAppStatus, getStoreLanguages, getStoreThemes } from "../server/graphql";
+import { activities as activitiesCol } from "../mongodb.server";
 
 
 export async function action({ request }) {
@@ -44,6 +45,35 @@ export async function action({ request }) {
             const app_status = await getAppStatus(session,allthemesEC);
             // console.log("App status", app_status);
             return {app_status,status:200}
+        case "GET_DASHBOARD_METRICS":
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const startOfYesterday = new Date(startOfToday);
+            startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+            
+            const [totalEdits, todayEdits, yesterdayEdits] = await Promise.all([
+              activitiesCol.countDocuments({ shop: session.shop }),
+              activitiesCol.countDocuments({ shop: session.shop, createdAt: { $gte: startOfToday } }),
+              activitiesCol.countDocuments({ shop: session.shop, createdAt: { $gte: startOfYesterday, $lt: startOfToday } }),
+            ]);
+
+            let change = 0;
+            if (yesterdayEdits > 0) {
+              change = Math.round(((todayEdits - yesterdayEdits) / yesterdayEdits) * 100);
+            } else if (todayEdits > 0) {
+              change = 100;
+            }
+
+            return {
+              data: {
+                metrics: { totalEdits, todayEdits, yesterdayEdits, change }
+              },
+              status: 200
+            };
+        case "GET_RECENT_ACTIVITY":
+            const { getRecentActivity } = await import("../server/graphql");
+            const recentActivities = await getRecentActivity(admin);
+            return { data: { activities: recentActivities || [] }, status: 200 };
         default:
           break;
         }

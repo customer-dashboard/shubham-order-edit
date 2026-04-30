@@ -2,7 +2,6 @@ import { MongoClient } from "mongodb";
 
 const MONGODB_URI = "mongodb+srv://testingchatbot123:testingchatbot123@kingofgk.xlmgrbr.mongodb.net/?appName=Kingofgk";
 const DB_NAME = "order-edit";
-const COLLECTION_NAME = "store_plans";
 
 let mongodb;
 
@@ -16,38 +15,24 @@ if (process.env.NODE_ENV === "production") {
 }
 
 const db = mongodb.db(DB_NAME);
-const storePlans = db.collection(COLLECTION_NAME);
 const activities = db.collection("activity");
 
+
 /**
- * Save or update a subscription for a shop.
+ * Log uninstallation event.
  */
-export async function saveSubscription(shop, shopName, planData) {
-  const record = {
+export async function logUninstallation(shop, payload = {}) {
+  const now = new Date();
+
+  return await activities.insertOne({
     shop,
-    shopName,
-    plan: planData.plan,
-    status: planData.status || "active",
-    activatedAt: planData.activatedAt || new Date(),
-    updatedAt: new Date(),
-    // Store additional info if needed
-    isTest: planData.isTest ?? false,
-    shopifyId: planData.shopifyId,
-  };
-
-  return await storePlans.updateOne(
-    { shop },
-    { $set: record },
-    { upsert: true }
-  );
+    type: "uninstall",
+    timestamp: now,
+    message: "App uninstalled by merchant",
+    payload
+  });
 }
 
-/**
- * Get active subscription for a shop.
- */
-export async function getSubscription(shop) {
-  return await storePlans.findOne({ shop });
-}
 
 /**
  * log activity to mongodb
@@ -60,14 +45,6 @@ export async function logActivityToDB(shop, activity) {
   });
 }
 
-/**
- * Cancel subscription for a shop (usually on uninstall or plan change).
- */
-export async function cancelSubscription(shop) {
-  return await storePlans.updateOne(
-    { shop },
-    { $set: { status: "cancelled", cancelledAt: new Date() } }
-  );
-}
 
-export { mongodb, db, storePlans, activities };
+
+export { mongodb, db, activities };
