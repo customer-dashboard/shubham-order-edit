@@ -68,6 +68,33 @@ export default function AnalyticsPage() {
     loadAnalytics(dateRange);
   }, [dateRange]);
 
+  const prepareChartData = (backendData, range) => {
+    if (!backendData || !range) return [];
+
+    const filledData = [];
+    const statsMap = Object.fromEntries(backendData.map(d => [d.key, d.value]));
+
+    const curr = new Date(range.start);
+    const end = new Date(range.end);
+
+    // Normalize to date part for comparison
+    const endStr = end.toISOString().split('T')[0];
+
+    while (true) {
+      const dayStr = curr.toISOString().split('T')[0];
+      filledData.push({
+        key: dayStr,
+        value: statsMap[dayStr] || 0
+      });
+
+      if (dayStr === endStr) break;
+      curr.setDate(curr.getDate() + 1);
+      if (curr > new Date(end.getTime() + 86400000)) break; // Safety break
+    }
+
+    return filledData;
+  };
+
   if (loading && !data) {
     return null
   }
@@ -104,7 +131,7 @@ export default function AnalyticsPage() {
                 data={[
                   {
                     name: "Total Edits",
-                    data: data?.chartData || [],
+                    data: prepareChartData(data?.chartData, dateRange),
                   }
                 ]}
               />
@@ -125,9 +152,9 @@ export default function AnalyticsPage() {
           </s-box>
           <s-grid gridTemplateColumns="1fr auto" alignItems="center" padding="small-100" gap="base">
             <s-box>
-              <s-heading>Customer support</s-heading>
+              <s-heading>Phone Number Editing</s-heading>
             </s-box>
-            <s-heading variant="headingLg">{data?.counts?.total_customer_support_chat_initiated || 0}</s-heading>
+            <s-heading variant="headingLg">{data?.counts?.total_phone_number_editing || 0}</s-heading>
           </s-grid>
           <s-box paddingInline="small-100">
             <s-divider />

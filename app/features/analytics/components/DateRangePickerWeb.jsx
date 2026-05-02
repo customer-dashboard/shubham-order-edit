@@ -24,8 +24,6 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
     { title: 'Custom range', period: { since: start, until: end } },
   ], [today, yesterday, start, end]);
 
-
-  const [activeDateRange, setActiveDateRange] = React.useState(ranges[7]);
   const [tempRange, setTempRange] = React.useState({ since: start, until: end });
   const [view, setView] = React.useState(() => `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`);
 
@@ -41,8 +39,26 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
     return d.toISOString().split('T')[0];
   };
 
+  const isSameDay = (d1, d2) => {
+
+
+    if (!d1 || !d2) return false;
+    return d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate();
+  };
+
+  const getActiveRange = () => {
+    const matchingRange = ranges.slice(0, 7).find(r =>
+      isSameDay(r.period.since, tempRange.since) &&
+      isSameDay(r.period.until, tempRange.until)
+    );
+    return matchingRange || ranges[7];
+  };
+
+  const activeRange = getActiveRange();
+
   const handleSelectRange = (range) => {
-    setActiveDateRange(range);
     setTempRange(range.period);
     const s = range.period.since;
     if (s && !isNaN(s.getTime())) {
@@ -58,7 +74,6 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
     const until = new Date(e);
     if (!isNaN(since.getTime()) && !isNaN(until.getTime())) {
       setTempRange({ since, until });
-      setActiveDateRange(ranges[7]);
     }
   };
 
@@ -71,9 +86,9 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
         variant="secondary"
         suffixIcon="chevron-down"
       >
-        {activeDateRange.title === 'Custom range'
+        {activeRange.title === 'Custom range'
           ? `${formatDateLabel(tempRange.since)} - ${formatDateLabel(tempRange.until)}`
-          : activeDateRange.title}
+          : activeRange.title}
       </s-button>
 
       <s-popover
@@ -88,8 +103,7 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
               <s-stack direction="block" gap="none">
                 {ranges.map((range) => (
                   <s-clickable
-                    //  background?: 'transparent' | 'base' | 'subdued' | 'strong';
-                    background={activeDateRange.title === range.title ? 'strong' : ''}
+                    background={activeRange.title === range.title ? 'strong' : ''}
                     key={range.title}
                     padding="small-100"
                     onClick={() => handleSelectRange(range)}
@@ -101,9 +115,9 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
                       gap="base"
                     >
                       <s-box>
-                        <s-text variant="bodyMd" fontWeight={activeDateRange.title === range.title ? 'bold' : 'regular'}>{range.title}</s-text>
+                        <s-text variant="bodyMd" fontWeight={activeRange.title === range.title ? 'bold' : 'regular'}>{range.title}</s-text>
                       </s-box>
-                      {activeDateRange.title === range.title ? <s-icon type="check" size="small" /> : <s-icon type="chevron-right" size="small" />}
+                      {activeRange.title === range.title ? <s-icon type="check" size="small" /> : <s-icon type="chevron-right" size="small" />}
                     </s-grid>
                   </s-clickable>
                 ))}
@@ -114,31 +128,30 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
             <s-box padding="large">
               <s-grid gridTemplateColumns="1fr">
                 <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-
                   <s-text-field
                     label="Since"
                     labelHidden
-                    value={formatDateLabel(tempRange.since)}
+                    value={formatDateInput(tempRange.since)}
+                    placeholder="YYYY-MM-DD"
                     inlineSize="fill"
                     onBlur={(e) => {
                       const d = new Date(e.currentTarget.value);
                       if (!isNaN(d.getTime())) {
                         setTempRange(prev => ({ ...prev, since: d }));
                         setView(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-                        setActiveDateRange(ranges[7]);
                       }
                     }}
                   />
                   <s-text-field
                     label="Until"
                     labelHidden
-                    value={formatDateLabel(tempRange.until)}
+                    value={formatDateInput(tempRange.until)}
+                    placeholder="YYYY-MM-DD"
                     inlineSize="fill"
                     onBlur={(e) => {
                       const d = new Date(e.currentTarget.value);
                       if (!isNaN(d.getTime())) {
                         setTempRange(prev => ({ ...prev, until: d }));
-                        setActiveDateRange(ranges[7]);
                       }
                     }}
                   />
@@ -147,6 +160,7 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
                   type="range"
                   view={view}
                   value={`${formatDateInput(tempRange.since)}--${formatDateInput(tempRange.until)}`}
+                  allow={`--${formatDateInput(today)}`}
                   onChange={handleDatePickerChange}
                   onViewChange={(e) => setView(e.currentTarget.view)}
                 />
@@ -166,6 +180,7 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
         </s-box>
       </s-popover>
     </s-box>
+
 
   );
 };
