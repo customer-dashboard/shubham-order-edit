@@ -121,36 +121,16 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("Error loading dashboard data:", error);
       } finally {
-        shopify.loading(false)
         setIsExtensionsLoading(false);
         setLoading(false);
+        shopify.loading(false)
       }
     }
     loaddata()
   }, [])
 
   if (loading || isExtensionsLoading) {
-    return (
-      <s-page>
-        <s-section>
-          <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
-            {[1, 2, 3].map(i => (
-              <s-box key={i} paddingBlock="small-400" paddingInline="small-100" borderRadius="base" border="all">
-                <s-grid gap="small-300">
-                  <s-skeleton-display-text size="small" />
-                  <s-skeleton-display-text size="large" />
-                </s-grid>
-              </s-box>
-            ))}
-          </s-grid>
-        </s-section>
-        <s-section>
-          <s-box paddingBlock="large-400">
-            <s-skeleton-body-text lines={10} />
-          </s-box>
-        </s-section>
-      </s-page>
-    );
+    return null
   }
 
   return (

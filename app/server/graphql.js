@@ -832,31 +832,17 @@ export async function syncAnalytics(admin, shopDomain) {
     const startOfYesterday = new Date(startOfToday);
     startOfYesterday.setDate(startOfYesterday.getDate() - 1);
 
-    // 1. Fetch ALL metrics from MongoDB in parallel
+    // 1. Fetch data from MongoDB
     const [
       totalorderedit,
       todayEdits,
       yesterdayEdits,
-      shippingCount,
-      discountCount,
-      phoneCount,
-      invoiceCount,
-      deliveryCount,
-      linesCount,
-      addingCount,
-      dailyStats,
+      dailyStatsDetailed,
       recentLogs
     ] = await Promise.all([
       activitiesCol.countDocuments({ shop: shopDomain }),
       activitiesCol.countDocuments({ shop: shopDomain, createdAt: { $gte: startOfToday } }),
       activitiesCol.countDocuments({ shop: shopDomain, createdAt: { $gte: startOfYesterday, $lt: startOfToday } }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: "ADDRESS_UPDATE" }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: "DISCOUNT_APPLIED" }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: "PHONE_UPDATE" }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: "INVOICE_GENERATED" }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: "DELIVERY_INST_UPDATE" }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: { $in: ["ITEM_REMOVED", "ITEM_REPLACED", "QTY_UPDATE", "ORDER_UPDATE"] } }),
-      activitiesCol.countDocuments({ shop: shopDomain, type: "PRODUCT_ADDED" }),
       activitiesCol.aggregate([
         { 
           $match: { 
@@ -866,8 +852,23 @@ export async function syncAnalytics(admin, shopDomain) {
         },
         {
           $group: {
-            _id: { $dateToString: { format: "%d/%m/%Y", date: "$createdAt" } },
+            _id: {
+              date: { $dateToString: { format: "%d/%m/%Y", date: "$createdAt" } },
+              type: "$type"
+            },
             count: { $sum: 1 }
+          }
+        },
+        {
+          $group: {
+            _id: "$_id.date",
+            stats: {
+              $push: {
+                k: "$_id.type",
+                v: "$count"
+              }
+            },
+            total: { $sum: "$count" }
           }
         }
       ]).toArray(),
@@ -882,18 +883,31 @@ export async function syncAnalytics(admin, shopDomain) {
       change = 100;
     }
 
-    // 3. Prepare 30-day timeline
+    // 3. Prepare 30-day timeline with detailed stats
     const last30daysdata = {};
-    const statsMap = Object.fromEntries(dailyStats.map(s => [s._id, s.count]));
+    const statsMap = Object.fromEntries(dailyStatsDetailed.map(s => [s._id, s]));
 
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      const key = `${day}/${month}/${year}`;
-      last30daysdata[key] = statsMap[key] || 0;
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+      const yearStr = d.getFullYear();
+      const key = `${dayStr}/${monthStr}/${yearStr}`;
+      
+      const dayData = statsMap[key] || { stats: {}, total: 0 };
+      const s = dayData.stats ? Object.fromEntries(dayData.stats.map(item => [item.k, item.v])) : {};
+
+      last30daysdata[key] = {
+        totaledits: dayData.total || 0,
+        total_shipping_address_editing: s["ADDRESS_UPDATE"] || 0,
+        total_discount_code: s["DISCOUNT_APPLIED"] || 0,
+        total_phone_number_editing: s["PHONE_UPDATE"] || 0,
+        total_invoice_download: s["INVOICE_GENERATED"] || 0,
+        total_delivery_instructions: s["DELIVERY_INST_UPDATE"] || 0,
+        total_order_line_items_editing: (s["ITEM_REMOVED"] || 0) + (s["ITEM_REPLACED"] || 0) + (s["QTY_UPDATE"] || 0) + (s["ORDER_UPDATE"] || 0),
+        total_adding_more_products: s["PRODUCT_ADDED"] || 0
+      };
     }
 
     // 4. Construct Unified JSON
@@ -903,13 +917,6 @@ export async function syncAnalytics(admin, shopDomain) {
       yesterdayEdits,
       change,
       last30daysdata,
-      total_shipping_address_editing: shippingCount,
-      total_discount_code: discountCount,
-      total_phone_number_editing: phoneCount,
-      total_invoice_download: invoiceCount,
-      total_delivery_instructions: deliveryCount,
-      total_order_line_items_editing: linesCount,
-      total_adding_more_products: addingCount,
       last10activity: recentLogs.map(log => ({
         id: log._id,
         orderName: log.orderName,
@@ -951,6 +958,7 @@ export async function syncAnalytics(admin, shopDomain) {
     return null;
   }
 }
+
 
 
 

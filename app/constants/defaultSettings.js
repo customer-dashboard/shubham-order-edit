@@ -42,7 +42,16 @@ export const generateDefaultChartData = () => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     const key = `${day}/${month}/${year}`;
-    data[key] = 0;
+    data[key] = {
+      totaledits: 0,
+      total_shipping_address_editing: 0,
+      total_discount_code: 0,
+      total_phone_number_editing: 0,
+      total_invoice_download: 0,
+      total_delivery_instructions: 0,
+      total_order_line_items_editing: 0,
+      total_adding_more_products: 0
+    };
   }
   return data;
 };
@@ -50,15 +59,9 @@ export const generateDefaultChartData = () => {
 export const DEFAULT_ANALYTICS = {
   totalorderedit: 0,
   last30daysdata: generateDefaultChartData(),
-  total_shipping_address_editing: 0,
-  total_discount_code: 0,
-  total_phone_number_editing: 0,
-  total_invoice_download: 0,
-  total_delivery_instructions: 0,
-  total_order_line_items_editing: 0,
-  total_adding_more_products: 0,
   last10activity: []
 };
+
 
 
 

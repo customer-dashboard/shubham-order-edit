@@ -20,6 +20,7 @@ export default function SettingsPage() {
   // --- Initial load (Direct API - Admin GraphQL) ---
   useEffect(() => {
     async function initData() {
+      shopify.loading(true)
       try {
         const response = await fetch("shopify:admin/api/graphql.json", {
           method: "POST",
@@ -62,6 +63,7 @@ export default function SettingsPage() {
         console.error("Error fetching direct API data:", error);
       } finally {
         setLoading(false);
+        shopify.loading(false)
       }
     }
 
@@ -189,16 +191,7 @@ export default function SettingsPage() {
 
   // --- Loading state ---
   if (loading) {
-    return (
-      <s-page heading="Settings" inlineSize="small">
-        <s-section heading="Loading settings">
-          <s-stack gap="base">
-            <s-text>Loading app settings…</s-text>
-            <s-spinner accessibilityLabel="Loading settings" />
-          </s-stack>
-        </s-section>
-      </s-page>
-    );
+    return null
   }
 
   return (
@@ -462,6 +455,9 @@ export default function SettingsPage() {
           </s-stack>
           <OrderPreview appSettings={appSettings} />
         </s-grid>
+        <s-stack alignItems="center">
+          <s-text>Learn more about <s-link href="">creating puzzles</s-link>.</s-text>
+        </s-stack>
       </s-page>
     </>
   );

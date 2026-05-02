@@ -85,11 +85,73 @@ export async function action({ request }) {
                 } : { totalEdits: 0, todayEdits: 0, yesterdayEdits: 0, change: 0 }
               },
               status: 200
+            };        case "GET_DETAILED_ANALYTICS":
+            const range = formValue.get("range"); // "YYYY-MM-DD--YYYY-MM-DD"
+            let start = new Date();
+            start.setDate(start.getDate() - 30);
+            let end = new Date();
+
+            if (range) {
+              const [startStr, endStr] = range.split("--");
+              if (startStr) start = new Date(startStr);
+              if (endStr) {
+                end = new Date(endStr);
+                end.setHours(23, 59, 59, 999);
+              }
+            }
+
+            const [detailedStats, summaryCounts] = await Promise.all([
+              activitiesCol.aggregate([
+                { 
+                  $match: { 
+                    shop: session.shop, 
+                    createdAt: { $gte: start, $lte: end } 
+                  } 
+                },
+                {
+                  $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                    count: { $sum: 1 }
+                  }
+                },
+                { $sort: { _id: 1 } }
+              ]).toArray(),
+              activitiesCol.aggregate([
+                { 
+                  $match: { 
+                    shop: session.shop, 
+                    createdAt: { $gte: start, $lte: end } 
+                  } 
+                },
+                {
+                  $group: {
+                    _id: "$type",
+                    count: { $sum: 1 }
+                  }
+                }
+              ]).toArray()
+            ]);
+
+            const s = Object.fromEntries(summaryCounts.map(item => [item._id, item.count]));
+
+            return {
+              data: {
+                chartData: detailedStats.map(s => ({
+                  key: s._id,
+                  value: s.count
+                })),
+                counts: {
+                  total_shipping_address_editing: s["ADDRESS_UPDATE"] || 0,
+                  total_discount_code: s["DISCOUNT_APPLIED"] || 0,
+                  total_phone_number_editing: s["PHONE_UPDATE"] || 0,
+                  total_invoice_download: s["INVOICE_GENERATED"] || 0,
+                  total_delivery_instructions: s["DELIVERY_INST_UPDATE"] || 0,
+                  total_order_line_items_editing: (s["ITEM_REMOVED"] || 0) + (s["ITEM_REPLACED"] || 0) + (s["QTY_UPDATE"] || 0) + (s["ORDER_UPDATE"] || 0),
+                  total_adding_more_products: s["PRODUCT_ADDED"] || 0
+                }
+              },
+              status: 200
             };
-
-
-
-
 
         default:
           break;
