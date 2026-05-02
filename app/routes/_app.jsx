@@ -3,6 +3,9 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
+import { AppProvider as PolarisProvider } from "@shopify/polaris";
+import translations from "@shopify/polaris/locales/en.json";
+
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
@@ -28,7 +31,7 @@ export default function App() {
             query: `
               query getAppConfig {
                 shop {
-                  metafield(namespace: "order_editing", key: "ord_edit_config") {
+                  metafield(namespace: "custlo_app", key: "app_settings") {
                     value
                   }
                 }
@@ -44,20 +47,10 @@ export default function App() {
           setConfig(JSON.parse(value));
         } else {
           // Default config if metafield missing
-          setConfig({
-            onboarding: { step: 0, completed: false },
-            settings: {
-              edit_shipping_address: true,
-              edit_phone_number: true,
-              show_line_items: true,
-              update_quantity: true,
-              replace_line_item: true,
-              change_delivery_instruction: true,
-              apply_discount: false,
-              download_invoice: true
-            }
-          });
+          const { DEFAULT_APP_SETTINGS } = await import("../constants/defaultSettings");
+          setConfig(DEFAULT_APP_SETTINGS);
         }
+
       } catch (error) {
         console.error("Error initializing app via Direct API:", error);
       }
@@ -99,22 +92,28 @@ export default function App() {
 
   return (
     <ShopifyAppProvider embedded apiKey={apiKey}>
-      <s-app-nav>
-        <s-link href="/" rel="home">Home</s-link>
-        <s-link href="/settings">Settings</s-link>
-      </s-app-nav>
-      <Outlet
-        context={{
-          defSetting,
-          setDefSetting,
-          config,
-          setConfig,
-          billingNew,
-          storeLanguages,
-        }}
-      />
+      <PolarisProvider i18n={translations}>
+        <s-app-nav>
+          <s-link href="/" rel="home">Home</s-link>
+          <s-link href="/analytics">Analytics</s-link>
+          <s-link href="/settings">Settings</s-link>
+        </s-app-nav>
+
+
+        <Outlet
+          context={{
+            defSetting,
+            setDefSetting,
+            config,
+            setConfig,
+            billingNew,
+            storeLanguages,
+          }}
+        />
+      </PolarisProvider>
     </ShopifyAppProvider>
   );
+
 }
 
 export function ErrorBoundary() {

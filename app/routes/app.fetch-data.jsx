@@ -46,34 +46,51 @@ export async function action({ request }) {
             // console.log("App status", app_status);
             return {app_status,status:200}
         case "GET_DASHBOARD_METRICS":
-            const now = new Date();
-            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const startOfYesterday = new Date(startOfToday);
-            startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+            // Fetch Metafield Directly for Dashboard (Metafield-driven)
+            const response = await admin.graphql(
+              `#graphql
+              query getAnalytics {
+                shop {
+                  metafield(namespace: "order_editing", key: "analytics_30d") {
+                    value
+                  }
+                }
+              }`
+            );
+            const result = await response.json();
+            const metaValue = result.data?.shop?.metafield?.value;
             
-            const [totalEdits, todayEdits, yesterdayEdits] = await Promise.all([
-              activitiesCol.countDocuments({ shop: session.shop }),
-              activitiesCol.countDocuments({ shop: session.shop, createdAt: { $gte: startOfToday } }),
-              activitiesCol.countDocuments({ shop: session.shop, createdAt: { $gte: startOfYesterday, $lt: startOfToday } }),
-            ]);
-
-            let change = 0;
-            if (yesterdayEdits > 0) {
-              change = Math.round(((todayEdits - yesterdayEdits) / yesterdayEdits) * 100);
-            } else if (todayEdits > 0) {
-              change = 100;
+            let analytics = null;
+            if (metaValue) {
+              try {
+                analytics = JSON.parse(metaValue);
+              } catch (e) {
+                console.error("Error parsing analytics metafield:", e);
+              }
             }
+
+            // Trigger sync in background to keep it fresh for next visit
+            const { syncAnalytics } = await import("../server/graphql");
+            syncAnalytics(admin, session.shop);
 
             return {
               data: {
-                metrics: { totalEdits, todayEdits, yesterdayEdits, change }
+                analytics: analytics || {},
+                // Minimal metrics for legacy support if needed, but primarily driven by analytics object
+                metrics: analytics ? { 
+                  totalEdits: analytics.totalorderedit, 
+                  todayEdits: analytics.todayEdits, 
+                  yesterdayEdits: analytics.yesterdayEdits, 
+                  change: analytics.change 
+                } : { totalEdits: 0, todayEdits: 0, yesterdayEdits: 0, change: 0 }
               },
               status: 200
             };
-        case "GET_RECENT_ACTIVITY":
-            const { getRecentActivity } = await import("../server/graphql");
-            const recentActivities = await getRecentActivity(admin);
-            return { data: { activities: recentActivities || [] }, status: 200 };
+
+
+
+
+
         default:
           break;
         }

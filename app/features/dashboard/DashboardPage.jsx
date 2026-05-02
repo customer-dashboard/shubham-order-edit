@@ -1,4 +1,10 @@
 import { useEffect, useState } from "react";
+import { useOutletContext } from "react-router";
+import { LineChart } from "@shopify/polaris-viz";
+import { DEFAULT_ANALYTICS } from "../../constants/defaultSettings";
+
+
+
 
 export default function DashboardPage() {
   const [activities, setActivities] = useState([]);
@@ -7,6 +13,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [isOrderEditActive, setIsOrderEditActive] = useState(false);
   const [isExtensionsLoading, setIsExtensionsLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState(DEFAULT_ANALYTICS);
+
+  const [totalOrders, setTotalOrders] = useState(0);
+  const { config } = useOutletContext();
+
+
 
   const [visible, setVisible] = useState({
     banner: true,
@@ -22,8 +34,24 @@ export default function DashboardPage() {
         // Direct API Access for Shopify Data
         const shopPromise = fetch('shopify:admin/api/graphql.json', {
           method: 'POST',
-          body: JSON.stringify({ query: `query { shop { name } }` })
+          body: JSON.stringify({
+            query: `query {
+              shop {
+                name
+                metafield(namespace: "order_editing", key: "analytics_30d") {
+                  value
+                }
+              }
+              orders {
+                pageInfo {
+                  totalCount
+                }
+              }
+            }`
+
+          })
         }).then(r => r.json());
+
 
         // Independent Backend calls for MongoDB Data
         const metricsPromise = fetch('/app/fetch-data', {
@@ -50,9 +78,40 @@ export default function DashboardPage() {
           activitiesPromise
         ]);
 
-        if (shopResp.data?.shop) setShopName(shopResp.data.shop.name);
-        if (metricsResp.data?.metrics) setMetrics(metricsResp.data.metrics);
-        if (activitiesResp.data?.activities) setActivities(activitiesResp.data.activities);
+        if (shopResp.data?.shop) {
+          setShopName(shopResp.data.shop.name);
+          const metaValue = shopResp.data.shop.metafield?.value;
+          if (metaValue) {
+            try {
+              const parsed = JSON.parse(metaValue);
+              setAnalyticsData(prev => ({
+                ...prev,
+                ...parsed
+              }));
+              // Also sync activities from metafield if they exist
+              if (parsed.last10activity) {
+                setActivities(parsed.last10activity);
+              }
+            } catch (e) {
+              console.error("Error parsing analytics metafield:", e);
+            }
+          }
+        }
+
+        if (shopResp.data?.orders?.pageInfo?.totalCount) {
+          setTotalOrders(shopResp.data.orders.pageInfo.totalCount);
+        }
+
+        if (metricsResp.data?.analytics) {
+          setAnalyticsData(metricsResp.data.analytics);
+          if (metricsResp.data.analytics.last10activity) {
+            setActivities(metricsResp.data.analytics.last10activity);
+          }
+        }
+
+
+
+
 
         // App Bridge Extensions API
         const shopss = await shopify.app.extensions();
@@ -75,19 +134,19 @@ export default function DashboardPage() {
       <s-page>
         <s-section>
           <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
-             {[1,2,3].map(i => (
-               <s-box key={i} paddingBlock="small-400" paddingInline="small-100" borderRadius="base" border="all">
-                 <s-grid gap="small-300">
-                   <s-skeleton-display-text size="small" />
-                   <s-skeleton-display-text size="large" />
-                 </s-grid>
-               </s-box>
-             ))}
+            {[1, 2, 3].map(i => (
+              <s-box key={i} paddingBlock="small-400" paddingInline="small-100" borderRadius="base" border="all">
+                <s-grid gap="small-300">
+                  <s-skeleton-display-text size="small" />
+                  <s-skeleton-display-text size="large" />
+                </s-grid>
+              </s-box>
+            ))}
           </s-grid>
         </s-section>
         <s-section>
           <s-box paddingBlock="large-400">
-             <s-skeleton-body-text lines={10} />
+            <s-skeleton-body-text lines={10} />
           </s-box>
         </s-section>
       </s-page>
@@ -127,62 +186,67 @@ export default function DashboardPage() {
         </s-banner>
       )}
 
-      {/* Metrics Cards */}
+      {/* Summary Metrics Section */}
+      <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base" paddingBlockEnd="base">
+        <s-section heading="Total Orders">
+          <s-heading variant="headingLg">{totalOrders}</s-heading>
+        </s-section>
+        {console.log(metrics, 'metrics')}
+        <s-section heading="Total Edited Orders">
+          <s-heading variant="headingLg">{analyticsData?.totalorderedit || metrics?.totalEdits || 0}</s-heading>
+        </s-section>
+
+
+
+
+        <s-section heading="Active Features">
+          <s-heading variant="headingLg">
+            {[
+              'shipping_address_editing',
+              'discount_code',
+              'phone_number_editing',
+              'invoice_download',
+              'delivery_instructions',
+              'order_line_items_editing',
+              'adding_more_products'
+            ].filter(key => config?.[key]?.status === 'enable').length} / 7
+          </s-heading>
+        </s-section>
+
+
+      </s-grid>
+
+
+      {/* Analytics Chart Section */}
       <s-section>
-        <s-grid gridTemplateColumns="1fr 1fr 1fr" gap="base">
-          <s-clickable
-            paddingBlock="small-400"
-            paddingInline="small-100"
-            borderRadius="base"
-            border="all"
-          >
-            <s-grid gap="small-300">
-              <s-heading variant="headingMd">Total Edits</s-heading>
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-text variant="headingLg">{metrics?.totalEdits || 0}</s-text>
-              </s-stack>
-            </s-grid>
-          </s-clickable>
+        <s-grid gap="base">
+          <s-grid gridTemplateColumns="1fr auto" alignItems="center">
+            <s-box>
+              <s-heading variant="headingLg">Overview</s-heading>
+              <s-text color="subdued">Last 30 days</s-text>
+            </s-box>
+            <s-link href="/analytics">Detailed analytics →</s-link>
+          </s-grid>
 
-          <s-clickable
-            paddingBlock="small-400"
-            paddingInline="small-100"
-            borderRadius="base"
-            border="all"
-          >
-            <s-grid gap="small-300">
-              <s-heading variant="headingMd">Edits Today</s-heading>
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-text variant="headingLg">{metrics?.todayEdits || 0}</s-text>
-                {metrics?.change >= 0 ? (
-                  <s-badge tone="success" icon="arrow-up">
-                    {metrics?.change}%
-                  </s-badge>
-                ) : (
-                  <s-badge tone="critical" icon="arrow-down">
-                    {Math.abs(metrics?.change)}%
-                  </s-badge>
-                )}
-              </s-stack>
-            </s-grid>
-          </s-clickable>
+          <s-box minHeight="300px" paddingBlockStart="base">
+            {console.log(analyticsData)}
+            <LineChart
+              data={[
+                {
+                  name: "Total Edits",
+                  data: Object.entries(analyticsData?.last30daysdata || {}).map(([key, value]) => ({ key, value })),
+                },
+              ]}
+              showLegend={false}
+            />
 
-          <s-clickable
-            paddingBlock="small-400"
-            paddingInline="small-100"
-            borderRadius="base"
-            border="all"
-          >
-            <s-grid gap="small-300">
-              <s-heading variant="headingMd">Yesterday</s-heading>
-              <s-stack direction="inline" gap="small-200" alignItems="center">
-                <s-text variant="headingLg">{metrics?.yesterdayEdits || 0}</s-text>
-                <s-text color="subdued" variant="bodySm">Previous day</s-text>
-              </s-stack>
-            </s-grid>
-          </s-clickable>
+
+          </s-box>
         </s-grid>
       </s-section>
+
+
+
 
       {activities && activities.length > 0 ? (
         <s-section padding="none">

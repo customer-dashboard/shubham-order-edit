@@ -253,13 +253,14 @@ export async function setAppConfig(admin, config) {
         variables: {
           metafields: [
             {
-              key: "ord_edit_config",
-              namespace: "order_editing",
+              key: "app_settings",
+              namespace: "custlo_app",
               ownerId: shopGid,
               type: "json",
               value: JSON.stringify(config),
             },
           ],
+
         },
       }
     );
@@ -792,60 +793,172 @@ import { logActivityToDB } from "../mongodb.server";
 
 export async function logActivity(admin, shop, activity) {
   try {
+    console.log("Activity: Logging to MongoDB...", activity.type);
     // 1. Log to DB
-    await logActivityToDB(shop, activity).catch(e => console.error("DB Log Error:", e));
+    await logActivityToDB(shop, activity);
 
-    // 2. Log to Metafield
-    const shopResponse = await admin.graphql(`{ shop { id metafield(namespace: "order_editing", key: "recent_activity") { value } } }`);
-    const shopData = await shopResponse.json();
-    const shopGid = shopData.data.shop.id;
-    const existingValue = shopData.data.shop.metafield?.value;
+    // 2. Sync to Unified Metafield (Analytics + Recent Activity)
+    // Small delay to ensure MongoDB indexing
+    setTimeout(async () => {
+      await syncAnalytics(admin, shop);
+    }, 500);
+
     
-    let activities = [];
-    if (existingValue) {
-      try {
-        activities = JSON.parse(existingValue);
-      } catch (e) {
-        activities = [];
-      }
+  } catch (error) {
+    console.error("Error logging activity:", error);
+  }
+}
+
+
+/**
+ * Increment Analytics counter and update chart data
+ */
+import { DEFAULT_ANALYTICS } from "../constants/defaultSettings";
+
+import { activities as activitiesCol } from "../mongodb.server";
+
+/**
+ * Sync Analytics from MongoDB to Shopify Metafield
+ * Ensures Metafield always matches MongoDB source of truth.
+ * Only keeps last 30 days of trend data in the Metafield.
+ */
+export async function syncAnalytics(admin, shopDomain) {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const startOfToday = new Date();
+    startOfToday.setHours(0,0,0,0);
+    const startOfYesterday = new Date(startOfToday);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    // 1. Fetch ALL metrics from MongoDB in parallel
+    const [
+      totalorderedit,
+      todayEdits,
+      yesterdayEdits,
+      shippingCount,
+      discountCount,
+      phoneCount,
+      invoiceCount,
+      deliveryCount,
+      linesCount,
+      addingCount,
+      dailyStats,
+      recentLogs
+    ] = await Promise.all([
+      activitiesCol.countDocuments({ shop: shopDomain }),
+      activitiesCol.countDocuments({ shop: shopDomain, createdAt: { $gte: startOfToday } }),
+      activitiesCol.countDocuments({ shop: shopDomain, createdAt: { $gte: startOfYesterday, $lt: startOfToday } }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: "ADDRESS_UPDATE" }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: "DISCOUNT_APPLIED" }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: "PHONE_UPDATE" }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: "INVOICE_GENERATED" }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: "DELIVERY_INST_UPDATE" }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: { $in: ["ITEM_REMOVED", "ITEM_REPLACED", "QTY_UPDATE", "ORDER_UPDATE"] } }),
+      activitiesCol.countDocuments({ shop: shopDomain, type: "PRODUCT_ADDED" }),
+      activitiesCol.aggregate([
+        { 
+          $match: { 
+            shop: shopDomain, 
+            createdAt: { $gte: thirtyDaysAgo } 
+          } 
+        },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%d/%m/%Y", date: "$createdAt" } },
+            count: { $sum: 1 }
+          }
+        }
+      ]).toArray(),
+      activitiesCol.find({ shop: shopDomain }).sort({ createdAt: -1 }).limit(10).toArray()
+    ]);
+
+    // 2. Calculate change %
+    let change = 0;
+    if (yesterdayEdits > 0) {
+      change = Math.round(((todayEdits - yesterdayEdits) / yesterdayEdits) * 100);
+    } else if (todayEdits > 0) {
+      change = 100;
     }
 
-    // Add new activity to the start
-    activities.unshift({
-      ...activity,
-      id: Math.random().toString(36).substr(2, 9),
-      timestamp: new Date().toISOString()
-    });
+    // 3. Prepare 30-day timeline
+    const last30daysdata = {};
+    const statsMap = Object.fromEntries(dailyStats.map(s => [s._id, s.count]));
 
-    // Keep only last 10 for metafield (for performance)
-    activities = activities.slice(0, 10);
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const key = `${day}/${month}/${year}`;
+      last30daysdata[key] = statsMap[key] || 0;
+    }
+
+    // 4. Construct Unified JSON
+    const analytics = {
+      totalorderedit,
+      todayEdits,
+      yesterdayEdits,
+      change,
+      last30daysdata,
+      total_shipping_address_editing: shippingCount,
+      total_discount_code: discountCount,
+      total_phone_number_editing: phoneCount,
+      total_invoice_download: invoiceCount,
+      total_delivery_instructions: deliveryCount,
+      total_order_line_items_editing: linesCount,
+      total_adding_more_products: addingCount,
+      last10activity: recentLogs.map(log => ({
+        id: log._id,
+        orderName: log.orderName,
+        orderId: log.orderId,
+        message: log.message,
+        timestamp: log.createdAt
+      }))
+    };
+
+    // 5. Save to Shopify
+    const shopResponse = await admin.graphql(`{ shop { id } }`);
+    const shopData = await shopResponse.json();
+    const shopGid = shopData.data.shop.id;
 
     await admin.graphql(
       `#graphql
       mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
         metafieldsSet(metafields: $metafields) {
           metafields { key value }
-          userErrors { field message }
         }
       }`,
       {
         variables: {
           metafields: [
             {
-              key: "recent_activity",
+              key: "analytics_30d",
               namespace: "order_editing",
               ownerId: shopGid,
               type: "json",
-              value: JSON.stringify(activities),
+              value: JSON.stringify(analytics),
             },
           ],
         },
       }
     );
+    return analytics;
   } catch (error) {
-    console.error("Error logging activity:", error);
+    console.error("Analytics: Sync Error:", error);
+    return null;
   }
 }
+
+
+
+
+
+
+
+
 
 /**
  * Get recent activity from Metafield

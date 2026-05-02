@@ -9,11 +9,27 @@ export default async () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://wages-first-galleries-ryan.trycloudflare.com";
+const BASEURL = "https://clarke-bernard-largest-many.trycloudflare.com";
 
 function OrderStatusManager() {
-    const { edit_address, edit_phone, apply_discount, download_invoice, delivery_instructions, edit_order_lines, add_products } = shopify.settings.value;
-    const view = shopify.extension.editor
+    const [appSettings, setAppSettings] = useState(null);
+    console.log("shopify====", shopify)
+    // Helper to check if a feature is enabled
+    const isEnabled = (key) => {
+        if (!appSettings) return true; // Default to true or use a default settings object
+        if (appSettings.status === "disable") return false;
+        return appSettings[key]?.status !== "disable";
+    };
+
+    const edit_address = isEnabled("shipping_address_editing");
+    const edit_phone = isEnabled("phone_number_editing");
+    const apply_discount = isEnabled("discount_code");
+    const download_invoice = isEnabled("invoice_download");
+    const delivery_instructions = isEnabled("delivery_instructions");
+    const edit_order_lines = isEnabled("order_line_items_editing");
+    const add_products = isEnabled("adding_more_products");
+
+    const view = shopify.extension.editor;
     console.log("idfoksdfk====", view)
     const orderId = shopify.order?.value?.id;
     const sessionToken = shopify.sessionToken;
@@ -84,6 +100,33 @@ function OrderStatusManager() {
     const [isSavingFullOrder, setIsSavingFullOrder] = useState(false);
     const [page, setPage] = useState(0);
 
+    // --- Global Editability Check ---
+    const getEditabilityStatus = () => {
+        if (!appSettings) return { editable: true };
+        if (appSettings.status === "disable") return { editable: false, reason: "app_disabled" };
+
+        // Check Time Limit
+        if (appSettings.time_limit?.status === "enable" && originalOrder?.createdAt) {
+            const createdAt = new Date(originalOrder.createdAt);
+            const now = new Date();
+            const diffMs = now - createdAt;
+            let limitMs = 0;
+            const timeVal = Number(appSettings.time_limit.time || 0);
+            const period = appSettings.time_limit.period || "minutes";
+
+            if (period === "minutes") limitMs = timeVal * 60 * 1000;
+            else if (period === "hours") limitMs = timeVal * 60 * 60 * 1000;
+            else if (period === "days") limitMs = timeVal * 24 * 60 * 60 * 1000;
+
+            if (diffMs > limitMs) return { editable: false, reason: "time_limit_exceeded" };
+        }
+
+        return { editable: true };
+    };
+
+    const editability = getEditabilityStatus();
+    const globalEditable = editability.editable;
+
     const originalFullOrderRef = useRef(null);
     const baselineReadyRef = useRef(false);
 
@@ -95,8 +138,9 @@ function OrderStatusManager() {
 
     const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
 
-    const normalizeProducts = (raw) =>
-        raw.map((item) => {
+    const normalizeProducts = (raw) => {
+        if (!raw || !Array.isArray(raw)) return [];
+        return raw.map((item) => {
             const product = item.node ?? item;
             return {
                 id: product.id,
@@ -106,6 +150,7 @@ function OrderStatusManager() {
                 variants: product.variants
             };
         });
+    };
 
     // Refs for tracking changes
     const originalAddressRef = useRef(null);
@@ -116,8 +161,12 @@ function OrderStatusManager() {
         async function loadData() {
             try {
                 const token = await sessionToken.get();
-                const ddt = await shopify.query(`query { shop { id } }`);
-                console.log("ddt", ddt)
+                if (!orderId) {
+                    console.warn("No order ID found");
+                    setLoading(false);
+                    return;
+                }
+                console.log("Loading data for order:", orderId);
                 // Fetch everything in parallel for maximum speed
                 const [orderRes, pRes, noteRes] = await Promise.all([
                     fetch(`${BASEURL}/api/order-status`, {
@@ -142,6 +191,11 @@ function OrderStatusManager() {
                     pRes.json(),
                     noteRes.json()
                 ]);
+                console.log("API responses parsed successfully");
+
+                if (orderJson?.data?.settings) {
+                    setAppSettings(orderJson.data.settings);
+                }
 
                 const fetchedOrder = orderJson.data;
 
@@ -169,9 +223,11 @@ function OrderStatusManager() {
                     setOriginalOrder(fetchedForStaging);
                 }
 
-                setProductSearchResults(normalizeProducts(pJson.data || []));
-                setDeliveryInst(noteJson.note ?? "");
-                if (noteJson.note && !originalNoteRef.current) originalNoteRef.current = noteJson.note;
+                setProductSearchResults(normalizeProducts(pJson?.data || []));
+                setDeliveryInst(noteJson?.note ?? "");
+                if (noteJson?.note && !originalNoteRef.current) originalNoteRef.current = noteJson.note;
+
+                console.log("Data initialization complete");
 
             } catch (err) {
                 console.error("loadData error:", err);
@@ -701,399 +757,408 @@ function OrderStatusManager() {
     return (
         <s-stack>
             <s-section>
-                <s-box border="base" borderRadius="base">
-                    {console.log(shopify.settings.value, "tttrttr")}
-                    {edit_address == null || edit_address == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setAddressBoxOpen(!addressBoxOpen)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="truck" />
-                                            <s-heading>Edit shipping address</s-heading>
-                                        </s-stack>
-                                    </s-box>
-                                    {addressBoxOpen ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
+                {editability.reason === "time_limit_exceeded" && (
+                    <s-box padding="base none">
+                        <s-banner tone="info">
+                            Order editing is no longer available for this order based on the store's policy.
+                        </s-banner>
+                    </s-box>
+                )}
 
-                            {addressBoxOpen && (
-                                <s-grid gap="base">
-                                    {/* Helper to get error for field */}
-                                    {(() => {
-                                        const getError = (f) => addressErrors.find((e) => e.field?.some(part => part.toLowerCase().includes(f.toLowerCase())))?.message;
-
-                                        return (
-                                            <>
-                                                <s-select
-                                                    label="Country"
-                                                    value={getCountryCode(shippingAddress?.countryCode ?? shippingAddress?.country)}
-                                                    error={getError("country")}
-                                                    onChange={(val) => {
-                                                        updateField("countryCode", val);
-                                                        setSelectedCountry(val.target?.value ?? val);
-                                                    }}
-                                                >
-                                                    {countries.map((c) => (
-                                                        <s-option key={c.code} value={c.code}>{c.name}</s-option>
-                                                    ))}
-                                                </s-select>
-
-                                                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                                                    <s-text-field label="First name" value={shippingAddress?.firstName ?? ""} error={getError("firstName")} onChange={(val) => updateField("firstName", val)} />
-                                                    <s-text-field label="Last name" value={shippingAddress?.lastName ?? ""} error={getError("lastName")} onChange={(val) => updateField("lastName", val)} />
-                                                </s-grid>
-
-                                                <s-text-field label="Address 1" value={shippingAddress?.address1 ?? ""} error={getError("address1")} onChange={(val) => updateField("address1", val)} />
-                                                <s-text-field label="Address 2" value={shippingAddress?.address2 ?? ""} error={getError("address2")} onChange={(val) => updateField("address2", val)} />
-
-                                                <s-select
-                                                    label="State / Province"
-                                                    value={shippingAddress?.provinceCode ?? shippingAddress?.province}
-                                                    error={getError("province")}
-                                                    onChange={(val) => updateField("provinceCode", val)}
-                                                >
-                                                    <s-option value="">Select State</s-option>
-                                                    {(COUNTRY_STATES[selectedCountry] ?? []).map((state) => (
-                                                        <s-option key={state.code} value={state.code}>{state.name}</s-option>
-                                                    ))}
-                                                </s-select>
-
-                                                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                                                    <s-text-field
-                                                        label="City"
-                                                        value={shippingAddress?.city ?? ""}
-                                                        error={getError("city")}
-                                                        onChange={(val) => updateField("city", val)}
-                                                    />
-                                                    <s-text-field
-                                                        label="Postal code"
-                                                        value={shippingAddress?.zip ?? ""}
-                                                        error={getError("zip") || getError("postal")}
-                                                        onChange={(val) => updateField("zip", val)}
-                                                    />
-                                                </s-grid>
-                                            </>
-                                        );
-                                    })()}
-
-                                    <s-stack direction="inline" justifyContent="end">
-                                        {hasAddressChanges() && (
-                                            <s-button variant="primary" loading={isAddressSaving} onClick={handleSaveAddress}>
-                                                Save changes
-                                            </s-button>
-                                        )}
+                {globalEditable && (
+                    <s-box border="base" borderRadius="base">
+                        {edit_address == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setAddressBoxOpen(!addressBoxOpen)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="truck" />
+                                                <s-heading>Edit shipping address</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {addressBoxOpen ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
                                     </s-stack>
-                                </s-grid>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                    {edit_phone == null || edit_phone == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setPhoneBoxOpen(!phoneBoxOpen)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="mobile" />
-                                            <s-heading>Phone Number (order)</s-heading>
-                                        </s-stack>
-                                    </s-box>
-                                    {phoneBoxOpen ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
+                                </s-clickable>
 
-                            {phoneBoxOpen && (
-                                <s-grid gap="base">
-                                    <s-email-field readOnly label="Email" value={customerEmail} />
-                                    <s-phone-field
-                                        label="Phone"
-                                        value={shippingAddress?.phone ?? ""}
-                                        error={validatePhone(shippingAddress?.phone, getCountryCode(shippingAddress?.countryCode ?? shippingAddress?.country))}
-                                        onChange={(val) => updateField("phone", val)}
-                                    />
-                                    <s-stack direction="inline" justifyContent="end">
-                                        {hasPhoneChanges() && (
-                                            <s-button variant="primary" loading={isPhoneSaving} onClick={handleSavePhone}>
-                                                Save changes
-                                            </s-button>
-                                        )}
+                                {addressBoxOpen && (
+                                    <s-grid gap="base">
+                                        {/* Helper to get error for field */}
+                                        {(() => {
+                                            const getError = (f) => addressErrors.find((e) => e.field?.some(part => part.toLowerCase().includes(f.toLowerCase())))?.message;
+
+                                            return (
+                                                <>
+                                                    <s-select
+                                                        label="Country"
+                                                        value={getCountryCode(shippingAddress?.countryCode ?? shippingAddress?.country)}
+                                                        error={getError("country")}
+                                                        onChange={(val) => {
+                                                            updateField("countryCode", val);
+                                                            setSelectedCountry(val.target?.value ?? val);
+                                                        }}
+                                                    >
+                                                        {countries.map((c) => (
+                                                            <s-option key={c.code} value={c.code}>{c.name}</s-option>
+                                                        ))}
+                                                    </s-select>
+
+                                                    <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                                                        <s-text-field label="First name" value={shippingAddress?.firstName ?? ""} error={getError("firstName")} onChange={(val) => updateField("firstName", val)} />
+                                                        <s-text-field label="Last name" value={shippingAddress?.lastName ?? ""} error={getError("lastName")} onChange={(val) => updateField("lastName", val)} />
+                                                    </s-grid>
+
+                                                    <s-text-field label="Address 1" value={shippingAddress?.address1 ?? ""} error={getError("address1")} onChange={(val) => updateField("address1", val)} />
+                                                    <s-text-field label="Address 2" value={shippingAddress?.address2 ?? ""} error={getError("address2")} onChange={(val) => updateField("address2", val)} />
+
+                                                    <s-select
+                                                        label="State / Province"
+                                                        value={shippingAddress?.provinceCode ?? shippingAddress?.province}
+                                                        error={getError("province")}
+                                                        onChange={(val) => updateField("provinceCode", val)}
+                                                    >
+                                                        <s-option value="">Select State</s-option>
+                                                        {(COUNTRY_STATES[selectedCountry] ?? []).map((state) => (
+                                                            <s-option key={state.code} value={state.code}>{state.name}</s-option>
+                                                        ))}
+                                                    </s-select>
+
+                                                    <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                                                        <s-text-field
+                                                            label="City"
+                                                            value={shippingAddress?.city ?? ""}
+                                                            error={getError("city")}
+                                                            onChange={(val) => updateField("city", val)}
+                                                        />
+                                                        <s-text-field
+                                                            label="Postal code"
+                                                            value={shippingAddress?.zip ?? ""}
+                                                            error={getError("zip") || getError("postal")}
+                                                            onChange={(val) => updateField("zip", val)}
+                                                        />
+                                                    </s-grid>
+                                                </>
+                                            );
+                                        })()}
+
+                                        <s-stack direction="inline" justifyContent="end">
+                                            {hasAddressChanges() && (
+                                                <s-button variant="primary" loading={isAddressSaving} onClick={handleSaveAddress}>
+                                                    Save changes
+                                                </s-button>
+                                            )}
+                                        </s-stack>
+                                    </s-grid>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                        {edit_phone == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setPhoneBoxOpen(!phoneBoxOpen)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="mobile" />
+                                                <s-heading>Phone Number (order)</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {phoneBoxOpen ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
                                     </s-stack>
-                                </s-grid>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                    {apply_discount == null || apply_discount == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setOpenDiscountBox(!openDiscountBox)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="order" />
-                                            <s-heading>Apply discount code</s-heading>
-                                        </s-stack>
-                                    </s-box>
-                                    {openDiscountBox ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
+                                </s-clickable>
 
-                            {openDiscountBox && (
-                                <s-stack direction="inline" gap="base">
-                                    <s-text-field
-                                        label="Discount code"
-                                        value={discountCode}
-                                        onChange={(val) => setDiscountCode(val.target.value)}
-                                    />
-                                    <s-button onClick={applyDiscount} loading={applyDiscountLoading}>
-                                        Apply
-                                    </s-button>
-                                </s-stack>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                    {/* DOWNLOAD INVOICE SECTION */}
-                    {download_invoice == null || download_invoice == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setOpenInvoice(!openInvoice)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="note" />
-                                            <s-heading>Download Invoice</s-heading>
-                                        </s-stack>
-                                    </s-box>
-                                    {openInvoice ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
-
-                            {openInvoice && (
-                                <s-stack gap="base" direction="block">
-                                    <s-choice-list values={invoiceOption} onChange={updateInvoice}>
-                                        <s-choice value="email">Send invoice by email</s-choice>
-                                    </s-choice-list>
-                                    <s-text type="small" color="subdued">
-                                        Send an invoice only when the order has a remaining balance (such as added items)
-                                    </s-text>
-                                    {invoiceOption.includes("email") && (
-                                        <s-text-field
-                                            label="Email"
-                                            value={invoiceEmail ?? customerEmail}
-                                            onChange={(val) => setInvoiceEmail(val.target.value)}
+                                {phoneBoxOpen && (
+                                    <s-grid gap="base">
+                                        <s-email-field readOnly label="Email" value={customerEmail} />
+                                        <s-phone-field
+                                            label="Phone"
+                                            value={shippingAddress?.phone ?? ""}
+                                            error={validatePhone(shippingAddress?.phone, getCountryCode(shippingAddress?.countryCode ?? shippingAddress?.country))}
+                                            onChange={(val) => updateField("phone", val)}
                                         />
-                                    )}
-                                    <s-stack direction="inline" justifyContent="end">
-                                        <s-button loading={isSavingInvoice} onClick={handleInvoice}>Generate Invoice</s-button>
-                                    </s-stack>
-                                    {lastInvoiceAction && (
-                                        <s-banner tone="info"><s-text>{lastInvoiceAction}</s-text></s-banner>
-                                    )}
-                                </s-stack>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                    {/* DELIVERY INSTRUCTIONS SECTION */}
-                    {delivery_instructions == null || delivery_instructions == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setOpenDelivery(!openDelivery)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="note" />
-                                            <s-heading>Change delivery instructions</s-heading>
+                                        <s-stack direction="inline" justifyContent="end">
+                                            {hasPhoneChanges() && (
+                                                <s-button variant="primary" loading={isPhoneSaving} onClick={handleSavePhone}>
+                                                    Save changes
+                                                </s-button>
+                                            )}
                                         </s-stack>
-                                    </s-box>
-                                    {openDelivery ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
-
-                            {openDelivery && (
-                                <s-stack gap="base" direction="block">
-                                    <s-heading>Delivery Instructions</s-heading>
-                                    <s-text color="subdued">Special instructions provided by the customer for this order.</s-text>
-                                    <s-text-field
-                                        label="Delivery Instructions"
-                                        value={deliveryInst}
-                                        onChange={(val) => setDeliveryInst(val.target.value)}
-                                    />
-                                    <s-stack direction="inline" justifyContent="end">
-                                        {hasDeliveryInstChanges() && (
-                                            <s-button variant="primary" loading={isSavingDelivery} onClick={updateDeliveryInst}>Save changes</s-button>
-                                        )}
-                                    </s-stack>
-                                    <s-text type="small" color="subdued">These instructions will be shared with our delivery team.</s-text>
-                                </s-stack>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                    {edit_order_lines == null || edit_order_lines == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setOpenEditLines(!openEditLines)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="order" />
-                                            <s-heading>Order Line Items</s-heading>
-                                        </s-stack>
-                                    </s-box>
-                                    {openEditLines ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
-
-                            {openEditLines && (
-                                <s-grid gap="base">
-                                    {(fullOrder?.lineItems?.edges ?? []).map((item, index) => (
-                                        <s-stack gap="base" inlineSize="100%" key={item.node?.id || index}>
-                                            <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base" inlineSize="100%">
-                                                <s-stack direction="inline" gap="base" alignItems="center" inlineSize="65%">
-                                                    <s-stack blockSize="70px" inlineSize="70px">
-                                                        <s-image src={item?.node?.image?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={item.node?.image?.altText} borderRadius="large-100" border="base" />
-                                                    </s-stack>
-                                                    <s-stack gap="small-500">
-                                                        <s-text type="generic" color="base">{item?.node?.name}</s-text>
-                                                        <s-text>Price: {formatPrice(
-                                                            item?.node?.originalUnitPriceSet?.presentmentMoney?.amount || item?.node?.originalUnitPriceSet?.shopMoney?.amount,
-                                                            item?.node?.originalUnitPriceSet?.presentmentMoney?.currencyCode || item?.node?.originalUnitPriceSet?.shopMoney?.currencyCode
-                                                        )}</s-text>
-                                                        {item.replaced_with && (
-                                                            <s-text color="info" size="small">Replaced with: {item.replaced_with.title}</s-text>
-                                                        )}
-                                                        {item.remove && (
-                                                            <s-text color="critical" size="small">Marked for removal</s-text>
-                                                        )}
-                                                    </s-stack>
-                                                </s-stack>
-                                                <s-stack direction="inline" alignItems="center" gap="base" justifyContent="end" inlineSize="auto">
-                                                    {!item.remove && (
-                                                        <s-number-field label="Qty" controls="stepper" defaultValue={String(item.node?.currentQuantity)} step={1} min={0} max={100} onChange={(val) => updateLineQty(index, val)} />
-                                                    )}
-                                                    <s-stack direction="inline" alignItems="center" gap="base">
-                                                        {!item.remove && (
-                                                            <s-button variant="secondary" command="--show" commandFor="replacePanelModal" onClick={() => { setReplaceIndex(index); setProductSearchQuery(""); }}>
-                                                                <s-icon type="reset" />
-                                                            </s-button>
-                                                        )}
-                                                        <s-button variant="secondary" tone={item.remove ? undefined : "critical"} inlineSize="auto" onClick={() => toggleRemove(index)}>
-                                                            {item.remove ? "Undo" : <s-icon type="delete" />}
-                                                        </s-button>
-                                                    </s-stack>
-                                                </s-stack>
+                                    </s-grid>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                        {apply_discount == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setOpenDiscountBox(!openDiscountBox)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="order" />
+                                                <s-heading>Apply discount code</s-heading>
                                             </s-stack>
-                                            <s-divider />
-                                        </s-stack>
-                                    ))}
-
-                                    <s-stack direction="inline" justifyContent="end">
-                                        {hasLineItemsChanges() && (
-                                            <s-button variant="primary" loading={isSavingLines} onClick={() => handleOrderEdit("lines")}>Save changes</s-button>
-                                        )}
+                                        </s-box>
+                                        {openDiscountBox ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
                                     </s-stack>
-                                </s-grid>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                    {add_products == null || add_products == true &&
-                        <s-box padding="base">
-                            <s-clickable inlineSize="100%" onClick={() => setOpenAddProduct(!openAddProduct)}>
-                                <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                    <s-box padding="large none">
-                                        <s-stack direction="inline" alignItems="center" gap="base">
-                                            <s-icon type="plus" />
-                                            <s-heading>Add more products</s-heading>
-                                        </s-stack>
-                                    </s-box>
-                                    {openAddProduct ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                </s-stack>
-                            </s-clickable>
+                                </s-clickable>
 
-                            {openAddProduct && (
-                                <s-stack gap="base" direction="block">
-                                    <s-text-field
-                                        label="Search products"
-                                        placeholder="Search products..."
-                                        value={productSearchQuery}
-                                        onChange={(val) => { handleProductSearch(val.target.value); }}
-                                    />
+                                {openDiscountBox && (
+                                    <s-stack direction="inline" gap="base">
+                                        <s-text-field
+                                            label="Discount code"
+                                            value={discountCode}
+                                            onChange={(val) => setDiscountCode(val.target.value)}
+                                        />
+                                        <s-button onClick={applyDiscount} loading={applyDiscountLoading}>
+                                            Apply
+                                        </s-button>
+                                    </s-stack>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                        {/* DOWNLOAD INVOICE SECTION */}
+                        {download_invoice == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setOpenInvoice(!openInvoice)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="note" />
+                                                <s-heading>Download Invoice</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {openInvoice ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+                                    </s-stack>
+                                </s-clickable>
 
-                                    {/* Results area */}
+                                {openInvoice && (
                                     <s-stack gap="base" direction="block">
-                                        {searchLoading ? (
-                                            <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
-                                                <s-box padding="large"><s-spinner size="small" /></s-box>
-                                            </s-stack>
-                                        ) : (
-                                            <>
-                                                {!searchLoading && visibleProducts.length === 0 && <s-text color="subdued">No products found.</s-text>}
-                                                {visibleProducts.map((p, i) => {
-                                                    const edges = fullOrder?.lineItems?.edges ?? [];
-                                                    const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
-                                                    const variantId = variantNode?.id ?? p.id;
-                                                    const isAdded = edges.some((item) => item.variant_id === variantId || item.product_id === p.id);
-                                                    const price = variantNode?.contextualPricing?.price?.amount || variantNode?.price || "0.00";
-                                                    const itemCurrency = variantNode?.contextualPricing?.price?.currencyCode || currencyCode;
-
-                                                    return (
-                                                        <s-grid
-                                                            key={p.id ?? i}
-                                                            gridTemplateColumns="auto 1fr auto"
-                                                            gap="base"
-                                                            alignItems="center"
-                                                            padding="base"
-                                                            borderWidth="base"
-                                                            borderRadius="base"
-                                                        >
-                                                            <s-stack inlineSize="64px" blockSize="64px">
-                                                                <s-image
-                                                                    src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"}
-                                                                    alt={p?.title}
-                                                                    inlineSize="fill"
-                                                                    objectFit="contain"
-                                                                />
-                                                            </s-stack>
-                                                            <s-stack gap="small-100" direction="block">
-                                                                <s-text tone="bold">{p?.title}</s-text>
-                                                                {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
-                                                                <s-text>{formatPrice(price, itemCurrency)}</s-text>
-                                                            </s-stack>
-                                                            <s-button
-                                                                variant={isAdded ? "secondary" : "primary"}
-                                                                tone={isAdded ? "critical" : undefined}
-                                                                onClick={() => toggleAddProduct(p)}
-                                                            >
-                                                                {isAdded ? "Remove" : "Add product"}
-                                                            </s-button>
-                                                        </s-grid>
-                                                    );
-                                                })}
-                                            </>
+                                        <s-choice-list values={invoiceOption} onChange={updateInvoice}>
+                                            <s-choice value="email">Send invoice by email</s-choice>
+                                        </s-choice-list>
+                                        <s-text type="small" color="subdued">
+                                            Send an invoice only when the order has a remaining balance (such as added items)
+                                        </s-text>
+                                        {invoiceOption.includes("email") && (
+                                            <s-text-field
+                                                label="Email"
+                                                value={invoiceEmail ?? customerEmail}
+                                                onChange={(val) => setInvoiceEmail(val.target.value)}
+                                            />
                                         )}
-                                    </s-stack>
-
-                                    {/* Pagination (Always below results) */}
-                                    {products_list.length > pageSize && (
-                                        <s-stack direction="inline" gap="base" alignItems="center" justifyContent="center">
-                                            <s-button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</s-button>
-                                            <s-text type="small">Page {page + 1} of {totalPages}</s-text>
-                                            <s-button variant="secondary" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>›</s-button>
+                                        <s-stack direction="inline" justifyContent="end">
+                                            <s-button loading={isSavingInvoice} onClick={handleInvoice}>Generate Invoice</s-button>
                                         </s-stack>
-                                    )}
-
-                                    {/* Action Button (Always at the very bottom) */}
-                                    <s-stack direction="inline" justifyContent="end">
-                                        {hasLineItemsChanges() && (
-                                            <s-button variant="primary" loading={isAddingProducts} onClick={() => handleOrderEdit("add")}>Save changes</s-button>
+                                        {lastInvoiceAction && (
+                                            <s-banner tone="info"><s-text>{lastInvoiceAction}</s-text></s-banner>
                                         )}
                                     </s-stack>
-                                </s-stack>
-                            )}
-                        </s-box>
-                    }
-                    <s-divider />
-                </s-box>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                        {/* DELIVERY INSTRUCTIONS SECTION */}
+                        {delivery_instructions == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setOpenDelivery(!openDelivery)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="note" />
+                                                <s-heading>Change delivery instructions</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {openDelivery ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+                                    </s-stack>
+                                </s-clickable>
+
+                                {openDelivery && (
+                                    <s-stack gap="base" direction="block">
+                                        <s-heading>Delivery Instructions</s-heading>
+                                        <s-text color="subdued">Special instructions provided by the customer for this order.</s-text>
+                                        <s-text-field
+                                            label="Delivery Instructions"
+                                            value={deliveryInst}
+                                            onChange={(val) => setDeliveryInst(val.target.value)}
+                                        />
+                                        <s-stack direction="inline" justifyContent="end">
+                                            {hasDeliveryInstChanges() && (
+                                                <s-button variant="primary" loading={isSavingDelivery} onClick={updateDeliveryInst}>Save changes</s-button>
+                                            )}
+                                        </s-stack>
+                                        <s-text type="small" color="subdued">These instructions will be shared with our delivery team.</s-text>
+                                    </s-stack>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                        {edit_order_lines == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setOpenEditLines(!openEditLines)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="order" />
+                                                <s-heading>Order Line Items</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {openEditLines ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+                                    </s-stack>
+                                </s-clickable>
+
+                                {openEditLines && (
+                                    <s-grid gap="base">
+                                        {(fullOrder?.lineItems?.edges ?? []).map((item, index) => (
+                                            <s-stack gap="base" inlineSize="100%" key={item.node?.id || index}>
+                                                <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base" inlineSize="100%">
+                                                    <s-stack direction="inline" gap="base" alignItems="center" inlineSize="65%">
+                                                        <s-stack blockSize="70px" inlineSize="70px">
+                                                            <s-image src={item?.node?.image?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={item.node?.image?.altText} borderRadius="large-100" border="base" />
+                                                        </s-stack>
+                                                        <s-stack gap="small-500">
+                                                            <s-text type="generic" color="base">{item?.node?.name}</s-text>
+                                                            <s-text>Price: {formatPrice(
+                                                                item?.node?.originalUnitPriceSet?.presentmentMoney?.amount || item?.node?.originalUnitPriceSet?.shopMoney?.amount,
+                                                                item?.node?.originalUnitPriceSet?.presentmentMoney?.currencyCode || item?.node?.originalUnitPriceSet?.shopMoney?.currencyCode
+                                                            )}</s-text>
+                                                            {item.replaced_with && (
+                                                                <s-text color="info" size="small">Replaced with: {item.replaced_with.title}</s-text>
+                                                            )}
+                                                            {item.remove && (
+                                                                <s-text color="critical" size="small">Marked for removal</s-text>
+                                                            )}
+                                                        </s-stack>
+                                                    </s-stack>
+                                                    <s-stack direction="inline" alignItems="center" gap="base" justifyContent="end" inlineSize="auto">
+                                                        {!item.remove && (
+                                                            <s-number-field label="Qty" controls="stepper" defaultValue={String(item.node?.currentQuantity)} step={1} min={0} max={100} onChange={(val) => updateLineQty(index, val)} />
+                                                        )}
+                                                        <s-stack direction="inline" alignItems="center" gap="base">
+                                                            {!item.remove && (
+                                                                <s-button variant="secondary" command="--show" commandFor="replacePanelModal" onClick={() => { setReplaceIndex(index); setProductSearchQuery(""); }}>
+                                                                    <s-icon type="reset" />
+                                                                </s-button>
+                                                            )}
+                                                            <s-button variant="secondary" tone={item.remove ? undefined : "critical"} inlineSize="auto" onClick={() => toggleRemove(index)}>
+                                                                {item.remove ? "Undo" : <s-icon type="delete" />}
+                                                            </s-button>
+                                                        </s-stack>
+                                                    </s-stack>
+                                                </s-stack>
+                                                <s-divider />
+                                            </s-stack>
+                                        ))}
+
+                                        <s-stack direction="inline" justifyContent="end">
+                                            {hasLineItemsChanges() && (
+                                                <s-button variant="primary" loading={isSavingLines} onClick={() => handleOrderEdit("lines")}>Save changes</s-button>
+                                            )}
+                                        </s-stack>
+                                    </s-grid>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                        {add_products == true &&
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setOpenAddProduct(!openAddProduct)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="plus" />
+                                                <s-heading>Add more products</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {openAddProduct ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+                                    </s-stack>
+                                </s-clickable>
+
+                                {openAddProduct && (
+                                    <s-stack gap="base" direction="block">
+                                        <s-text-field
+                                            label="Search products"
+                                            placeholder="Search products..."
+                                            value={productSearchQuery}
+                                            onChange={(val) => { handleProductSearch(val.target.value); }}
+                                        />
+
+                                        {/* Results area */}
+                                        <s-stack gap="base" direction="block">
+                                            {searchLoading ? (
+                                                <s-stack inlineSize="100%" direction="block" alignItems="center" justifyContent="center">
+                                                    <s-box padding="large"><s-spinner size="small" /></s-box>
+                                                </s-stack>
+                                            ) : (
+                                                <>
+                                                    {!searchLoading && visibleProducts.length === 0 && <s-text color="subdued">No products found.</s-text>}
+                                                    {visibleProducts.map((p, i) => {
+                                                        const edges = fullOrder?.lineItems?.edges ?? [];
+                                                        const variantNode = p.variants?.edges?.[0]?.node || p.variants?.[0];
+                                                        const variantId = variantNode?.id ?? p.id;
+                                                        const isAdded = edges.some((item) => item.variant_id === variantId || item.product_id === p.id);
+                                                        const price = variantNode?.contextualPricing?.price?.amount || variantNode?.price || "0.00";
+                                                        const itemCurrency = variantNode?.contextualPricing?.price?.currencyCode || currencyCode;
+
+                                                        return (
+                                                            <s-grid
+                                                                key={p.id ?? i}
+                                                                gridTemplateColumns="auto 1fr auto"
+                                                                gap="base"
+                                                                alignItems="center"
+                                                                padding="base"
+                                                                borderWidth="base"
+                                                                borderRadius="base"
+                                                            >
+                                                                <s-stack inlineSize="64px" blockSize="64px">
+                                                                    <s-image
+                                                                        src={p?.featuredImage?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"}
+                                                                        alt={p?.title}
+                                                                        inlineSize="fill"
+                                                                        objectFit="contain"
+                                                                    />
+                                                                </s-stack>
+                                                                <s-stack gap="small-100" direction="block">
+                                                                    <s-text tone="bold">{p?.title}</s-text>
+                                                                    {p.vendor && <s-text type="small" color="subdued">{p.vendor}</s-text>}
+                                                                    <s-text>{formatPrice(price, itemCurrency)}</s-text>
+                                                                </s-stack>
+                                                                <s-button
+                                                                    variant={isAdded ? "secondary" : "primary"}
+                                                                    tone={isAdded ? "critical" : undefined}
+                                                                    onClick={() => toggleAddProduct(p)}
+                                                                >
+                                                                    {isAdded ? "Remove" : "Add product"}
+                                                                </s-button>
+                                                            </s-grid>
+                                                        );
+                                                    })}
+                                                </>
+                                            )}
+                                        </s-stack>
+
+                                        {/* Pagination (Always below results) */}
+                                        {products_list.length > pageSize && (
+                                            <s-stack direction="inline" gap="base" alignItems="center" justifyContent="center">
+                                                <s-button variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>‹</s-button>
+                                                <s-text type="small">Page {page + 1} of {totalPages}</s-text>
+                                                <s-button variant="secondary" disabled={page >= totalPages - 1} onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}>›</s-button>
+                                            </s-stack>
+                                        )}
+
+                                        {/* Action Button (Always at the very bottom) */}
+                                        <s-stack direction="inline" justifyContent="end">
+                                            {hasLineItemsChanges() && (
+                                                <s-button variant="primary" loading={isAddingProducts} onClick={() => handleOrderEdit("add")}>Save changes</s-button>
+                                            )}
+                                        </s-stack>
+                                    </s-stack>
+                                )}
+                            </s-box>
+                        }
+                        <s-divider />
+                    </s-box>
+                )}
             </s-section>
             <s-modal id="replacePanelModal" heading="Replace Product" size="large-100">
                 <s-box padding="small-100">

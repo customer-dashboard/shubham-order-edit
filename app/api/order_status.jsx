@@ -47,23 +47,43 @@ export const action = async ({ request }) => {
       })));
     }
 
-    // Fetch variants for each line item (as per user's provided logic)
-    const variantsMap = {};
+    // Fetch variants for each line item in parallel
     const lineItems = orderData.lineItems?.edges || [];
-    for (const edge of lineItems) {
+    const variantResults = await Promise.all(lineItems.map(async (edge) => {
       const lineItem = edge.node;
       const productId = lineItem.product?.id;
       if (productId) {
         const variants = await fetchProductVariants(admin, productId, countryCode);
-        variantsMap[lineItem.id] = variants;
+        return { id: lineItem.id, variants };
       }
-    }
+      return null;
+    }));
+
+    const variantsMap = {};
+    variantResults.forEach(res => {
+      if (res) variantsMap[res.id] = res.variants;
+    });
+
+    // Fetch shop settings
+    const shopResponse = await admin.graphql(`
+      query {
+        shop {
+          metafield(namespace: "custlo_app", key: "app_settings") {
+            value
+          }
+        }
+      }
+    `);
+    const shopSettingsJson = await shopResponse.json();
+    const settingsValue = shopSettingsJson.data?.shop?.metafield?.value;
+    const settings = settingsValue ? JSON.parse(settingsValue) : null;
 
     return cors(new Response(JSON.stringify({
       status: 200,
       data: {
         ...orderData,
-        variantsMap
+        variantsMap,
+        settings
       }
     })));
 
