@@ -42,10 +42,8 @@ export default function DashboardPage() {
                   value
                 }
               }
-              orders {
-                pageInfo {
-                  totalCount
-                }
+              ordersCount {
+                count
               }
             }`
 
@@ -78,45 +76,44 @@ export default function DashboardPage() {
           activitiesPromise
         ]);
 
+        // 1. Handle Shop & Metafield Data
         if (shopResp.data?.shop) {
           setShopName(shopResp.data.shop.name);
           const metaValue = shopResp.data.shop.metafield?.value;
           if (metaValue) {
             try {
               const parsed = JSON.parse(metaValue);
-              setAnalyticsData(prev => ({
-                ...prev,
-                ...parsed
-              }));
-              // Also sync activities from metafield if they exist
-              if (parsed.last10activity) {
-                setActivities(parsed.last10activity);
-              }
-            } catch (e) {
-              console.error("Error parsing analytics metafield:", e);
-            }
+              setAnalyticsData(prev => ({ ...prev, ...parsed }));
+              if (parsed.last10activity) setActivities(parsed.last10activity);
+            } catch (e) { console.error("Metafield parse error:", e); }
           }
         }
 
-        if (shopResp.data?.orders?.pageInfo?.totalCount) {
-          setTotalOrders(shopResp.data.orders.pageInfo.totalCount);
+        if (shopResp.data?.ordersCount) {
+          setTotalOrders(shopResp.data.ordersCount.count);
         }
 
+        // 2. Handle Backend Metrics (Fallback/Sync)
         if (metricsResp.data?.analytics) {
-          setAnalyticsData(metricsResp.data.analytics);
-          if (metricsResp.data.analytics.last10activity) {
-            setActivities(metricsResp.data.analytics.last10activity);
-          }
+          setAnalyticsData(prev => ({ ...prev, ...metricsResp.data.analytics }));
         }
 
+        // 3. Handle Backend Activities
+        if (activitiesResp.data?.activities) {
+          setActivities(activitiesResp.data.activities);
+        }
 
+        // 4. Handle Extensions Status (Non-blocking)
+        try {
+          const extensions = await shopify.app.extensions();
+          const result = extensions.find(item => item.handle === "order-edit");
+          setIsOrderEditActive(!!(result && result.activations.length > 0));
+        } catch (e) {
+          console.warn("App Bridge Extensions API error:", e);
+        } finally {
+          setIsExtensionsLoading(false);
+        }
 
-
-
-        // App Bridge Extensions API
-        const shopss = await shopify.app.extensions();
-        const result = shopss.find(item => item.handle === "order-edit");
-        setIsOrderEditActive(!!(result && result.activations.length > 0));
 
       } catch (error) {
         console.error("Error loading dashboard data:", error);
@@ -214,7 +211,10 @@ export default function DashboardPage() {
               data={[
                 {
                   name: "Total Edits",
-                  data: Object.entries(analyticsData?.last30daysdata || {}).map(([key, value]) => ({ key, value })),
+                  data: Object.entries(analyticsData?.last30daysdata || {}).map(([key, value]) => ({ 
+                    key, 
+                    value: typeof value === 'object' && value !== null ? (value.totaledits || 0) : (Number(value) || 0) 
+                  })),
                 },
               ]}
               showLegend={false}

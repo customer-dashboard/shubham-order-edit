@@ -14,6 +14,8 @@ export default function AnalyticsPage() {
     return { start, end };
   });
 
+  const [totalOrdersRange, setTotalOrdersRange] = useState(0);
+
   const loadAnalytics = async (range) => {
     shopify.loading(true)
     setLoading(true);
@@ -21,6 +23,7 @@ export default function AnalyticsPage() {
       const format = (d) => d.toISOString().split('T')[0];
       const rangeStr = `${format(range.start)}--${format(range.end)}`;
 
+      // 1. Fetch Detailed Analytics from Backend
       const response = await fetch('/app/fetch-data', {
         method: 'POST',
         body: (() => {
@@ -31,7 +34,27 @@ export default function AnalyticsPage() {
         })()
       });
       const result = await response.json();
+
+      // 2. Fetch Orders Count via Direct Admin API
+      const startISO = range.start.toISOString();
+      const endISO = range.end.toISOString();
+      const gqlResponse = await fetch('shopify:admin/api/graphql.json', {
+        method: 'POST',
+        body: JSON.stringify({
+          query: `query OrdersCountByDateRange($query: String!) {
+            ordersCount(query: $query) {
+              count
+            }
+          }`,
+          variables: {
+            query: `created_at:>='${startISO}' created_at:<='${endISO}'`
+          }
+        })
+      }).then(r => r.json());
+
+      setTotalOrdersRange(gqlResponse.data?.ordersCount?.count || 0);
       setData(result.data);
+
     } catch (error) {
       console.error("Error loading analytics:", error);
     } finally {
@@ -39,6 +62,7 @@ export default function AnalyticsPage() {
       shopify.loading(false)
     }
   };
+
 
   useEffect(() => {
     loadAnalytics(dateRange);
@@ -57,6 +81,16 @@ export default function AnalyticsPage() {
           onDateRangeSelect={(range) => setDateRange(range)}
         />
       </s-stack>
+      <s-grid gridTemplateColumns="1fr 1fr" alignItems="center" gap="base" paddingBlockEnd="base">
+        <s-section heading="Total order">
+          <s-heading variant="headingLg">{totalOrdersRange}</s-heading>
+        </s-section>
+        <s-section heading="Total edits">
+          <s-heading variant="headingLg">
+            {data?.chartData?.reduce((acc, curr) => acc + curr.value, 0) || 0}
+          </s-heading>
+        </s-section>
+      </s-grid>
       <s-section>
         <s-box border="all" borderRadius="base">
           <s-heading variant="headingMd">Total Order Edits</s-heading>

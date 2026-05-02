@@ -30,37 +30,35 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
   const [view, setView] = React.useState(() => `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`);
 
   const formatDateLabel = (date) => {
-    if (!date) return '';
+    if (!date || isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const formatDateInput = (date) => {
-    if (!date) return '';
-    return date.toISOString().split('T')[0];
+    if (!date || isNaN(date.getTime())) return '';
+    const d = new Date(date);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().split('T')[0];
   };
 
   const handleSelectRange = (range) => {
     setActiveDateRange(range);
     setTempRange(range.period);
     const s = range.period.since;
-    setView(`${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}`);
+    if (s && !isNaN(s.getTime())) {
+      setView(`${s.getFullYear()}-${String(s.getMonth() + 1).padStart(2, '0')}`);
+    }
   };
 
   const handleDatePickerChange = (event) => {
     const val = event.currentTarget.value;
     if (!val || !val.includes('--')) return;
     const [s, e] = val.split('--');
-    setTempRange({ since: new Date(s), until: new Date(e) });
-    setActiveDateRange(ranges[7]);
-  };
-
-  const togglePopover = () => {
-    const popoverEl = document.getElementById('date-range-popover');
-    if (!popoverEl) return;
-    if (popoverOpen) {
-      popoverEl.hideOverlay?.();
-    } else {
-      popoverEl.showOverlay?.();
+    const since = new Date(s);
+    const until = new Date(e);
+    if (!isNaN(since.getTime()) && !isNaN(until.getTime())) {
+      setTempRange({ since, until });
+      setActiveDateRange(ranges[7]);
     }
   };
 
@@ -72,7 +70,6 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
         icon="calendar"
         variant="secondary"
         suffixIcon="chevron-down"
-        onClick={togglePopover}
       >
         {activeDateRange.title === 'Custom range'
           ? `${formatDateLabel(tempRange.since)} - ${formatDateLabel(tempRange.until)}`
@@ -85,77 +82,67 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
         onHide={() => setPopoverOpen(false)}
       >
         <s-box width="620px">
-          <s-grid gridTemplateColumns="200px 1fr">
+          <s-grid gridTemplateColumns="1fr 3fr">
             {/* Sidebar */}
-            <s-box borderInlineEnd="all" padding="small-100">
+            <s-box borderInlineEnd="all">
               <s-stack direction="block" gap="none">
                 {ranges.map((range) => (
-                  <s-box
+                  <s-clickable
+                    //  background?: 'transparent' | 'base' | 'subdued' | 'strong';
+                    background={activeDateRange.title === range.title ? 'strong' : ''}
                     key={range.title}
                     padding="small-100"
-                    borderRadius="base"
-                    style={{
-                      cursor: 'pointer',
-                      backgroundColor: activeDateRange.title === range.title ? '#e1e3e5' : 'transparent',
-                      transition: 'background-color 0.2s'
-                    }}
                     onClick={() => handleSelectRange(range)}
+                    accessibilityLabel={range.title}
                   >
-                    <s-grid gridTemplateColumns="1fr auto" alignItems="center">
-                      <s-text 
-                        variant="bodyMd" 
-                        fontWeight={activeDateRange.title === range.title ? 'bold' : 'regular'}
-                      >
-                        {range.title}
-                      </s-text>
-                      {activeDateRange.title === range.title && <s-icon type="chevron-right" size="small" />}
+                    <s-grid
+                      gridTemplateColumns="1fr auto"
+                      alignItems="center"
+                      gap="base"
+                    >
+                      <s-box>
+                        <s-text variant="bodyMd" fontWeight={activeDateRange.title === range.title ? 'bold' : 'regular'}>{range.title}</s-text>
+                      </s-box>
+                      {activeDateRange.title === range.title ? <s-icon type="check" size="small" /> : <s-icon type="chevron-right" size="small" />}
                     </s-grid>
-                  </s-box>
+                  </s-clickable>
                 ))}
               </s-stack>
             </s-box>
 
             {/* Content */}
             <s-box padding="large">
-              <s-stack gap="large">
-                <s-stack direction="inline" gap="base" alignItems="center">
-                  <s-stack gap="extra-tight" flex="1">
-                    <s-text variant="bodySm" color="subdued">Since</s-text>
-                    <s-text-field
-                      label="Since"
-                      labelHidden
-                      value={formatDateLabel(tempRange.since)}
-                      inlineSize="fill"
-                      onInput={(e) => {
-                        const d = new Date(e.currentTarget.value);
-                        if (!isNaN(d.getTime())) {
-                          setTempRange(prev => ({ ...prev, since: d }));
-                          setView(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-                        }
-                      }}
-                    />
-                  </s-stack>
-                  <s-box paddingBlockStart="base">
-                    <s-text>→</s-text>
-                  </s-box>
-                  <s-stack gap="extra-tight" flex="1">
-                    <s-text variant="bodySm" color="subdued">Until</s-text>
-                    <s-text-field
-                      label="Until"
-                      labelHidden
-                      value={formatDateLabel(tempRange.until)}
-                      inlineSize="fill"
-                      onInput={(e) => {
-                        const d = new Date(e.currentTarget.value);
-                        if (!isNaN(d.getTime())) {
-                          setTempRange(prev => ({ ...prev, until: d }));
-                        }
-                      }}
-                    />
-                  </s-stack>
-                </s-stack>
+              <s-grid gridTemplateColumns="1fr">
+                <s-grid gridTemplateColumns="1fr 1fr" gap="base">
 
-                {/* Single Calendar */}
+                  <s-text-field
+                    label="Since"
+                    labelHidden
+                    value={formatDateLabel(tempRange.since)}
+                    inlineSize="fill"
+                    onBlur={(e) => {
+                      const d = new Date(e.currentTarget.value);
+                      if (!isNaN(d.getTime())) {
+                        setTempRange(prev => ({ ...prev, since: d }));
+                        setView(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+                        setActiveDateRange(ranges[7]);
+                      }
+                    }}
+                  />
+                  <s-text-field
+                    label="Until"
+                    labelHidden
+                    value={formatDateLabel(tempRange.until)}
+                    inlineSize="fill"
+                    onBlur={(e) => {
+                      const d = new Date(e.currentTarget.value);
+                      if (!isNaN(d.getTime())) {
+                        setTempRange(prev => ({ ...prev, until: d }));
+                        setActiveDateRange(ranges[7]);
+                      }
+                    }}
+                  />
+                </s-grid>
                 <s-date-picker
                   type="range"
                   view={view}
@@ -163,21 +150,23 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
                   onChange={handleDatePickerChange}
                   onViewChange={(e) => setView(e.currentTarget.view)}
                 />
-
-                <s-divider />
-                <s-stack direction="inline" justifyContent="end" gap="base">
-                  <s-button onClick={() => document.getElementById('date-range-popover')?.hideOverlay()}>Cancel</s-button>
-                  <s-button variant="primary" onClick={() => {
-                    onDateRangeSelect({ start: tempRange.since, end: tempRange.until });
-                    document.getElementById('date-range-popover')?.hideOverlay();
-                  }}>Apply</s-button>
-                </s-stack>
-              </s-stack>
+              </s-grid>
             </s-box>
           </s-grid>
+          <s-divider />
+          <s-stack direction="inline" justifyContent="end" gap="base" padding="base">
+            <s-button onClick={() => document.getElementById('date-range-popover')?.hideOverlay()}>Cancel</s-button>
+            <s-button variant="primary" onClick={() => {
+              if (tempRange.since && tempRange.until) {
+                onDateRangeSelect({ start: tempRange.since, end: tempRange.until });
+              }
+              document.getElementById('date-range-popover')?.hideOverlay();
+            }}>Apply</s-button>
+          </s-stack>
         </s-box>
       </s-popover>
     </s-box>
+
   );
 };
 
