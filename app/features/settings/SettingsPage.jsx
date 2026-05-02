@@ -230,13 +230,15 @@ export default function SettingsPage() {
           gap="small"
           justifyContent="center">
           <s-stack gap="base">
-            <s-section>
-              <s-stack gap="small-200">
+            <s-section padding="none">
+              <s-stack
+                gap="none"
+                overflow="hidden"
+              >
                 <s-grid
                   gridTemplateColumns="1fr auto"
                   alignItems="center"
-                  gap="base"
-                  paddingBlockEnd="small-100"
+                  padding="base"
                 >
                   <s-box>
                     <s-heading>Enable </s-heading>
@@ -247,14 +249,12 @@ export default function SettingsPage() {
                     onChange={handleStatusChange}
                   />
                 </s-grid>
-
-              </s-stack>
-              <s-divider />
-              <s-stack
-                gap="none"
-                overflow="hidden"
-              >
-                <s-box padding="small-100">
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("shipping_address_editing")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
                   <s-grid
                     gridTemplateColumns="1fr auto"
                     alignItems="center"
@@ -262,22 +262,19 @@ export default function SettingsPage() {
                   >
                     <s-box>
                       <s-heading>Shipping Address Editing</s-heading>
-                      <s-paragraph color="subdued">
-                        Allow customers to edit their shipping address after placing an order.
-                      </s-paragraph>
                     </s-box>
                     <s-switch
                       name="shipping_address_editing"
                       checked={appSettings?.shipping_address_editing?.status === "enable"}
-                      onChange={() => handleToggleSetting("shipping_address_editing")}
                     />
                   </s-grid>
-                </s-box>
-                <s-box paddingInline="small-100">
-                  <s-divider />
-                </s-box>
-
-                <s-box padding="small-100">
+                </s-clickable>
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("discount_code")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
                   <s-grid
                     gridTemplateColumns="1fr auto"
                     alignItems="center"
@@ -285,45 +282,19 @@ export default function SettingsPage() {
                   >
                     <s-box>
                       <s-heading>Enable Discount Code</s-heading>
-                      <s-paragraph color="subdued">
-                        Allow customers to apply or change discount codes on existing orders.
-                      </s-paragraph>
                     </s-box>
                     <s-switch
-                      name="discount_code"
+                      name="shipping_address_editing"
                       checked={appSettings?.discount_code?.status === "enable"}
-                      onChange={() => handleToggleSetting("discount_code")}
                     />
                   </s-grid>
-                </s-box>
-                <s-box paddingInline="small-100">
-                  <s-divider />
-                </s-box>
-
-                <s-box padding="small-100">
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Phone Number Editing</s-heading>
-                      <s-paragraph color="subdued">
-                        Allow customers to update their contact phone number.
-                      </s-paragraph>
-                    </s-box>
-                    <s-switch
-                      name="phone_number_editing"
-                      checked={appSettings?.phone_number_editing?.status === "enable"}
-                      onChange={() => handleToggleSetting("phone_number_editing")}
-                    />
-                  </s-grid>
-                </s-box>
-                <s-box paddingInline="small-100">
-                  <s-divider />
-                </s-box>
-
-                <s-box padding="small-100">
+                </s-clickable>
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("invoice_download")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
                   <s-grid
                     gridTemplateColumns="1fr auto"
                     alignItems="center"
@@ -331,22 +302,20 @@ export default function SettingsPage() {
                   >
                     <s-box>
                       <s-heading>Invoice Download</s-heading>
-                      <s-paragraph color="subdued">
-                        Provide customers with a direct link to download their order invoice.
-                      </s-paragraph>
                     </s-box>
                     <s-switch
                       name="invoice_download"
                       checked={appSettings?.invoice_download?.status === "enable"}
-                      onChange={() => handleToggleSetting("invoice_download")}
+
                     />
                   </s-grid>
-                </s-box>
-                <s-box paddingInline="small-100">
-                  <s-divider />
-                </s-box>
-
-                <s-box padding="small-100">
+                </s-clickable>
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("delivery_instructions")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
                   <s-grid
                     gridTemplateColumns="1fr auto"
                     alignItems="center"
@@ -354,22 +323,21 @@ export default function SettingsPage() {
                   >
                     <s-box>
                       <s-heading>Delivery Instructions</s-heading>
-                      <s-paragraph color="subdued">
-                        Allow customers to add or edit delivery notes for the courier.
-                      </s-paragraph>
                     </s-box>
                     <s-switch
                       name="delivery_instructions"
                       checked={appSettings?.delivery_instructions?.status === "enable"}
-                      onChange={() => handleToggleSetting("delivery_instructions")}
+
+
                     />
                   </s-grid>
-                </s-box>
-                <s-box paddingInline="small-100">
-                  <s-divider />
-                </s-box>
-
-                <s-box padding="small-100">
+                </s-clickable>
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("order_line_items_editing")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
                   <s-grid
                     gridTemplateColumns="1fr auto"
                     alignItems="center"
@@ -377,22 +345,19 @@ export default function SettingsPage() {
                   >
                     <s-box>
                       <s-heading>Order Line Items Editing</s-heading>
-                      <s-paragraph color="subdued">
-                        Allow customers to change quantities or remove items from their order.
-                      </s-paragraph>
                     </s-box>
                     <s-switch
                       name="order_line_items_editing"
                       checked={appSettings?.order_line_items_editing?.status === "enable"}
-                      onChange={() => handleToggleSetting("order_line_items_editing")}
                     />
                   </s-grid>
-                </s-box>
-                <s-box paddingInline="small-100">
-                  <s-divider />
-                </s-box>
-
-                <s-box padding="small-100">
+                </s-clickable>
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("adding_more_products")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
                   <s-grid
                     gridTemplateColumns="1fr auto"
                     alignItems="center"
@@ -400,62 +365,92 @@ export default function SettingsPage() {
                   >
                     <s-box>
                       <s-heading>Adding More Products</s-heading>
-                      <s-paragraph color="subdued">
-                        Allow customers to add new items to their existing order.
-                      </s-paragraph>
                     </s-box>
                     <s-switch
                       name="adding_more_products"
                       checked={appSettings?.adding_more_products?.status === "enable"}
-                      onChange={() => handleToggleSetting("adding_more_products")}
+
                     />
                   </s-grid>
-                </s-box>
+                </s-clickable>
+                <s-divider />
+                <s-clickable
+                  padding="small-100"
+                  onClick={() => handleToggleSetting("phone_number_editing")}
+                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                >
+                  <s-grid
+                    gridTemplateColumns="1fr auto"
+                    alignItems="center"
+                    gap="base"
+                  >
+                    <s-box>
+                      <s-heading>Phone Number Editing</s-heading>
+                    </s-box>
+                    <s-switch
+                      name="phone_number_editing"
+                      checked={appSettings?.phone_number_editing?.status === "enable"}
+                    />
+                  </s-grid>
+                </s-clickable>
+                <s-divider />
               </s-stack>
             </s-section>
-            <s-section>
-              <s-stack gap="base">
-                <s-switch
-                  label="Enable Time Limit"
-                  checked={appSettings.time_limit?.status === "enable"}
-                  onChange={() =>
-                    handleTimeLimitChange(
-                      "status",
-                      appSettings.time_limit?.status === "enable"
-                        ? "disable"
-                        : "enable"
-                    )
-                  }
-                />
-              </s-stack>
-              <s-stack gap="base">
-                {appSettings.time_limit?.status === "enable" && (
-                  <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                    <s-number-field
-                      label="Time Value"
-                      value={appSettings.time_limit?.time || 0}
-                      min={0}
-                      onChange={(e) =>
-                        handleTimeLimitChange("time", Number(e.target.value))
-                      }
-                    />
-                    <s-select
-                      label="Time Period"
-                      value={appSettings.time_limit?.period || "minutes"}
-                      onChange={(e) => handleTimeLimitChange("period", e.target.value)}
-                    >
-                      <s-option value="minutes">Minutes</s-option>
-                      <s-option value="hours">Hours</s-option>
-                      <s-option value="days">Days</s-option>
-                    </s-select>
-                  </s-grid>
-                )}
+            <s-section padding="none">
+              <s-stack
+                gap="none"
+                overflow="hidden"
+              >
+                <s-grid
+                  gridTemplateColumns="1fr auto"
+                  alignItems="center"
+                  padding="base"
+                >
+                  <s-box>
+                    <s-heading>Enable time limit</s-heading>
+                  </s-box>
+                  <s-switch
+                    checked={appSettings.time_limit?.status === "enable"}
+                    onChange={() =>
+                      handleTimeLimitChange(
+                        "status",
+                        appSettings.time_limit?.status === "enable"
+                          ? "disable"
+                          : "enable"
+                      )
+                    }
+                  />
+                </s-grid>
+                <s-divider />
+                <s-stack gap="base">
+                  {appSettings.time_limit?.status === "enable" && (
+                    <s-grid gridTemplateColumns="1fr" gap="base" padding="base">
+                      <s-number-field
+                        label="Time Value"
+                        value={appSettings.time_limit?.time || 0}
+                        min={0}
+                        onChange={(e) =>
+                          handleTimeLimitChange("time", Number(e.target.value))
+                        }
+                      />
+                      <s-select
+                        label="Time Period"
+                        value={appSettings.time_limit?.period || "minutes"}
+                        onChange={(e) => handleTimeLimitChange("period", e.target.value)}
+                      >
+                        <s-option value="minutes">Minutes</s-option>
+                        <s-option value="hours">Hours</s-option>
+                        <s-option value="days">Days</s-option>
+                      </s-select>
+                    </s-grid>
+                  )}
+                </s-stack>
               </s-stack>
             </s-section>
           </s-stack>
           <OrderPreview appSettings={appSettings} />
         </s-grid>
-        <s-stack alignItems="center">
+        <s-stack alignItems="center" padding="large">
           <s-text>Learn more about <s-link href="">creating puzzles</s-link>.</s-text>
         </s-stack>
       </s-page>
