@@ -9,8 +9,9 @@ export default function AnalyticsPage() {
 
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
-    const start = new Date();
-    start.setDate(start.getDate() - 30);
+    end.setHours(0, 0, 0, 0);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 29);
     return { start, end };
   });
 
@@ -108,7 +109,7 @@ export default function AnalyticsPage() {
           onDateRangeSelect={(range) => setDateRange(range)}
         />
       </s-stack>
-      <s-grid gridTemplateColumns="1fr auto" alignItems="center" gap="base" paddingBlockEnd="base">
+      <s-grid gridTemplateColumns="1fr 1fr" alignItems="center" gap="base" paddingBlockEnd="base">
         <s-section heading="Total order">
           <s-heading variant="headingLg">{totalOrdersRange}</s-heading>
         </s-section>

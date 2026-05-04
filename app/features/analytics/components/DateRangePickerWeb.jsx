@@ -38,6 +38,13 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
   const [selecting, setSelecting] = React.useState(false);
   const [hoverDay, setHoverDay] = React.useState(null);
 
+  const [sinceInput, setSinceInput] = React.useState('');
+  const [untilInput, setUntilInput] = React.useState('');
+  const [isSinceFocused, setIsSinceFocused] = React.useState(false);
+  const [isUntilFocused, setIsUntilFocused] = React.useState(false);
+  const uniqueId = React.useId().replace(/:/g, '');
+  const popoverId = `date-range-popover-${uniqueId}`;
+
   const [viewLeft, setViewLeft] = React.useState(() => {
     const d = new Date(start);
     d.setMonth(d.getMonth() - 1);
@@ -63,6 +70,28 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
   const formatDateLabel = (date) => {
     if (!date || isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatDateISO = (date) => {
+    if (!date || isNaN(date.getTime())) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const parseDate = (str) => {
+    if (!str) return null;
+    const parts = str.split('-');
+    if (parts.length === 3) {
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10) - 1;
+      const d = parseInt(parts[2], 10);
+      const date = new Date(y, m, d);
+      if (!isNaN(date.getTime())) return date;
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
   };
 
   const getActiveRange = () => {
@@ -130,14 +159,12 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
     if (tempRange.since && tempRange.until) {
       onDateRangeSelect({ start: tempRange.since, end: tempRange.until });
     }
-    document.getElementById('date-range-popover')?.hideOverlay();
   };
 
   const handleCancel = () => {
     setTempRange({ since: start, until: end });
     setSelecting(false);
     setHoverDay(null);
-    document.getElementById('date-range-popover')?.hideOverlay();
   };
 
   const triggerLabel =
@@ -149,7 +176,7 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
     <s-box>
       <s-button
         id="date-picker-trigger"
-        commandFor="date-range-popover"
+        commandFor={popoverId}
         icon="calendar"
         variant="secondary"
         suffixIcon="chevron-down"
@@ -166,7 +193,7 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
         {triggerLabel}
       </s-button>
 
-      <s-popover id="date-range-popover">
+      <s-popover id={popoverId}>
         <s-box width="680px">
           <s-grid gridTemplateColumns="180px 1fr">
 
@@ -201,11 +228,17 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
                 <s-grid gridTemplateColumns="1fr auto 1fr auto" alignItems="center" gap="small-100">
                   <s-text-field
                     labelHidden
-                    value={formatDateLabel(tempRange.since)}
+                    value={isSinceFocused ? sinceInput : formatDateLabel(tempRange.since)}
                     inlineSize="fill"
-                    onBlur={(e) => {
-                      const d = new Date(e.currentTarget.value);
-                      if (!isNaN(d.getTime())) {
+                    onFocus={() => {
+                      setSinceInput(formatDateISO(tempRange.since));
+                      setIsSinceFocused(true);
+                    }}
+                    onInput={(e) => setSinceInput(e.currentTarget.value)}
+                    onBlur={() => {
+                      setIsSinceFocused(false);
+                      const d = parseDate(sinceInput);
+                      if (d) {
                         setTempRange((prev) => ({ ...prev, since: d }));
                       }
                     }}
@@ -213,11 +246,17 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
                   <s-icon type="arrow-right" size="small" />
                   <s-text-field
                     labelHidden
-                    value={formatDateLabel(tempRange.until)}
+                    value={isUntilFocused ? untilInput : formatDateLabel(tempRange.until)}
                     inlineSize="fill"
-                    onBlur={(e) => {
-                      const d = new Date(e.currentTarget.value);
-                      if (!isNaN(d.getTime())) {
+                    onFocus={() => {
+                      setUntilInput(formatDateISO(tempRange.until));
+                      setIsUntilFocused(true);
+                    }}
+                    onInput={(e) => setUntilInput(e.currentTarget.value)}
+                    onBlur={() => {
+                      setIsUntilFocused(false);
+                      const d = parseDate(untilInput);
+                      if (d) {
                         setTempRange((prev) => ({ ...prev, until: d }));
                       }
                     }}
@@ -254,8 +293,8 @@ export const DateRangePickerWeb = ({ onDateRangeSelect, value: { start, end } })
           <s-divider />
 
           <s-stack direction="inline" justifyContent="end" gap="base" padding="base">
-            <s-button onClick={handleCancel}>Cancel</s-button>
-            <s-button variant="primary" onClick={handleApply}>Apply</s-button>
+            <s-button onClick={handleCancel} commandFor={popoverId} command="--hide">Cancel</s-button>
+            <s-button variant="primary" onClick={handleApply} commandFor={popoverId} command="--hide">Apply</s-button>
           </s-stack>
         </s-box>
       </s-popover>
