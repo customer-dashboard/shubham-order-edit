@@ -127,6 +127,28 @@ function OrderStatusManager() {
             }
         }
 
+        // Check Customer Tag Restriction
+        if (appSettings.customer_tags?.status === "enable") {
+            const allowedTags = (appSettings.customer_tags.tags || "")
+                .split(",")
+                .map(tag => tag.trim().toLowerCase())
+                .filter(tag => tag !== "");
+
+            if (allowedTags.length > 0) {
+                const customerTags = (originalOrder?.customer?.tags || []).map(tag => tag.toLowerCase());
+                const matchType = appSettings.customer_tags.match_type || "any";
+
+                let isMatch = false;
+                if (matchType === "all") {
+                    isMatch = allowedTags.every(tag => customerTags.includes(tag));
+                } else {
+                    isMatch = allowedTags.some(tag => customerTags.includes(tag));
+                }
+
+                if (!isMatch) return { editable: false, reason: "customer_tag_restriction_not_met" };
+            }
+        }
+
         // Check Time Limit
         if (appSettings.time_limit?.status === "enable" && originalOrder?.createdAt) {
             const createdAt = new Date(originalOrder.createdAt);
@@ -791,6 +813,14 @@ function OrderStatusManager() {
                     <s-box padding="base none">
                         <s-banner tone="info">
                             Order editing is only available for specific orders based on the store's policy.
+                        </s-banner>
+                    </s-box>
+                )}
+
+                {editability.reason === "customer_tag_restriction_not_met" && (
+                    <s-box padding="base none">
+                        <s-banner tone="info">
+                            Order editing is only available for specific customers based on the store's policy.
                         </s-banner>
                     </s-box>
                 )}

@@ -35,6 +35,11 @@ export const DEFAULT_APP_SETTINGS = {
     status: "disable",
     tags: "",
     match_type: "any"
+  },
+  customer_tags: {
+    status: "disable",
+    tags: "",
+    match_type: "any"
   }
 };
 

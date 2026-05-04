@@ -335,6 +335,7 @@ export async function getOrderDetails(admin, orderId) {
           }
           customer {
             id
+            tags
             firstName
             lastName
             email

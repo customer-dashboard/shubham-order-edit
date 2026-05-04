@@ -51,6 +51,10 @@ export default function SettingsPage() {
               const finalSettings = {
                 ...DEFAULT_APP_SETTINGS,
                 ...savedSettings,
+                customer_tags: {
+                  ...DEFAULT_APP_SETTINGS.customer_tags,
+                  ...(savedSettings.customer_tags || {}),
+                },
                 order_tags: {
                   ...DEFAULT_APP_SETTINGS.order_tags,
                   ...(savedSettings.order_tags || {}),
@@ -129,6 +133,16 @@ export default function SettingsPage() {
       ...appSettings,
       order_tags: {
         ...(appSettings.order_tags || {}),
+        [field]: value,
+      },
+    });
+  };
+
+  const handleCustomerTagsChange = (field, value) => {
+    setAppSettings({
+      ...appSettings,
+      customer_tags: {
+        ...(appSettings.customer_tags || {}),
         [field]: value,
       },
     });
@@ -496,6 +510,50 @@ export default function SettingsPage() {
                         label="Match Type"
                         value={appSettings.order_tags?.match_type || "any"}
                         onChange={(e) => handleOrderTagsChange("match_type", e.target.value)}
+                      >
+                        <s-option value="any">Match any tag (OR)</s-option>
+                        <s-option value="all">Match all tags (AND)</s-option>
+                      </s-select>
+                    </s-grid>
+                  )}
+                </s-stack>
+              </s-stack>
+            </s-section>
+            <s-section padding="none">
+              <s-stack
+                gap="none"
+                overflow="hidden"
+              >
+                <s-grid
+                  gridTemplateColumns="1fr auto"
+                  alignItems="center"
+                  padding="base"
+                >
+                  <s-box>
+                    <s-heading>Customer Tags Restriction</s-heading>
+                  </s-box>
+                  <s-switch
+                    name="customer_tags_restriction"
+                    checked={appSettings.customer_tags?.status === "enable"}
+                    onChange={() => handleToggleSetting("customer_tags")}
+                  />
+                </s-grid>
+                <s-divider />
+                <s-stack gap="base">
+                  {appSettings.customer_tags?.status === "enable" && (
+                    <s-grid gridTemplateColumns="1fr" gap="base" padding="base">
+                      <s-text-field
+                        label="Allowed Customer Tags"
+                        helpText="Comma separated tags (e.g. VIP, Wholesale)."
+                        value={appSettings.customer_tags?.tags || ""}
+                        onInput={(e) =>
+                          handleCustomerTagsChange("tags", e.target.value)
+                        }
+                      />
+                      <s-select
+                        label="Match Type"
+                        value={appSettings.customer_tags?.match_type || "any"}
+                        onChange={(e) => handleCustomerTagsChange("match_type", e.target.value)}
                       >
                         <s-option value="any">Match any tag (OR)</s-option>
                         <s-option value="all">Match all tags (AND)</s-option>
