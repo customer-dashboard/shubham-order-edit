@@ -30,6 +30,11 @@ export const DEFAULT_APP_SETTINGS = {
     status: "enable",
     time: 0,
     period: "minutes"
+  },
+  order_tags: {
+    status: "disable",
+    tags: "",
+    match_type: "any"
   }
 };
 

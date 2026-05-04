@@ -315,6 +315,7 @@ export async function getOrderDetails(admin, orderId) {
           id
           name
           email
+          tags
           createdAt
           currencyCode
           totalPriceSet {

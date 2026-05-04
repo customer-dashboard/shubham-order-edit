@@ -9,7 +9,7 @@ export default async () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://clarke-bernard-largest-many.trycloudflare.com";
+const BASEURL = "https://shakira-millennium-universities-continent.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
@@ -104,6 +104,28 @@ function OrderStatusManager() {
     const getEditabilityStatus = () => {
         if (!appSettings) return { editable: true };
         if (appSettings.status === "disable") return { editable: false, reason: "app_disabled" };
+
+        // Check Tag Restriction
+        if (appSettings.order_tags?.status === "enable") {
+            const allowedTags = (appSettings.order_tags.tags || "")
+                .split(",")
+                .map(tag => tag.trim().toLowerCase())
+                .filter(tag => tag !== "");
+
+            if (allowedTags.length > 0) {
+                const orderTags = (originalOrder?.tags || []).map(tag => tag.toLowerCase());
+                const matchType = appSettings.order_tags.match_type || "any";
+
+                let isMatch = false;
+                if (matchType === "all") {
+                    isMatch = allowedTags.every(tag => orderTags.includes(tag));
+                } else {
+                    isMatch = allowedTags.some(tag => orderTags.includes(tag));
+                }
+
+                if (!isMatch) return { editable: false, reason: "tag_restriction_not_met" };
+            }
+        }
 
         // Check Time Limit
         if (appSettings.time_limit?.status === "enable" && originalOrder?.createdAt) {
@@ -761,6 +783,14 @@ function OrderStatusManager() {
                     <s-box padding="base none">
                         <s-banner tone="info">
                             Order editing is no longer available for this order based on the store's policy.
+                        </s-banner>
+                    </s-box>
+                )}
+
+                {editability.reason === "tag_restriction_not_met" && (
+                    <s-box padding="base none">
+                        <s-banner tone="info">
+                            Order editing is only available for specific orders based on the store's policy.
                         </s-banner>
                     </s-box>
                 )}

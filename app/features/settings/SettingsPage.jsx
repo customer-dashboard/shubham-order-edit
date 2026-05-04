@@ -7,8 +7,8 @@ import OrderPreview from "./components/OrderPreview";
 export default function SettingsPage() {
   const [shopName, setShopName] = useState("");
   const [shopId, setShopId] = useState("");
-  const [appSettings, setAppSettings] = useState(DEFAULT_APP_SETTINGS);
-  const [originalSettings, setOriginalSettings] = useState(DEFAULT_APP_SETTINGS);
+  const [appSettings, setAppSettings] = useState(() => JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS)));
+  const [originalSettings, setOriginalSettings] = useState(() => JSON.parse(JSON.stringify(DEFAULT_APP_SETTINGS)));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -51,9 +51,13 @@ export default function SettingsPage() {
               const finalSettings = {
                 ...DEFAULT_APP_SETTINGS,
                 ...savedSettings,
+                order_tags: {
+                  ...DEFAULT_APP_SETTINGS.order_tags,
+                  ...(savedSettings.order_tags || {}),
+                },
               };
-              setAppSettings(finalSettings);
-              setOriginalSettings(finalSettings);
+              setAppSettings(JSON.parse(JSON.stringify(finalSettings)));
+              setOriginalSettings(JSON.parse(JSON.stringify(finalSettings)));
             } catch (e) {
               console.error("Error parsing metafield JSON:", e);
             }
@@ -119,7 +123,17 @@ export default function SettingsPage() {
     });
   };
 
-  // --- Handle Tags Change ---
+  // --- Handle Order Tags Change ---
+  const handleOrderTagsChange = (field, value) => {
+    setAppSettings({
+      ...appSettings,
+      order_tags: {
+        ...(appSettings.order_tags || {}),
+        [field]: value,
+      },
+    });
+  };
+
   // --- Discard: restore original state ---
   const handleDiscard = () => {
     setAppSettings(originalSettings);
@@ -174,7 +188,7 @@ export default function SettingsPage() {
         // error pe dirty state / bar visible hi rahega
       } else {
         // Save success: yahi pe originalSettings update karo
-        setOriginalSettings(appSettings);
+        setOriginalSettings(JSON.parse(JSON.stringify(appSettings)));
         setConfig(appSettings); // Sync with global app context
         shopify.toast.show("Settings saved successfully");
 
@@ -441,6 +455,50 @@ export default function SettingsPage() {
                         <s-option value="minutes">Minutes</s-option>
                         <s-option value="hours">Hours</s-option>
                         <s-option value="days">Days</s-option>
+                      </s-select>
+                    </s-grid>
+                  )}
+                </s-stack>
+              </s-stack>
+            </s-section>
+            <s-section padding="none">
+              <s-stack
+                gap="none"
+                overflow="hidden"
+              >
+                <s-grid
+                  gridTemplateColumns="1fr auto"
+                  alignItems="center"
+                  padding="base"
+                >
+                  <s-box>
+                    <s-heading>Order Tags Restriction</s-heading>
+                  </s-box>
+                  <s-switch
+                    name="order_tags_restriction"
+                    checked={appSettings.order_tags?.status === "enable"}
+                    onChange={() => handleToggleSetting("order_tags")}
+                  />
+                </s-grid>
+                <s-divider />
+                <s-stack gap="base">
+                  {appSettings.order_tags?.status === "enable" && (
+                    <s-grid gridTemplateColumns="1fr" gap="base" padding="base">
+                      <s-text-field
+                        label="Allowed Order Tags"
+                        helpText="Comma separated tags (e.g. VIP, Priority)."
+                        value={appSettings.order_tags?.tags || ""}
+                        onInput={(e) =>
+                          handleOrderTagsChange("tags", e.target.value)
+                        }
+                      />
+                      <s-select
+                        label="Match Type"
+                        value={appSettings.order_tags?.match_type || "any"}
+                        onChange={(e) => handleOrderTagsChange("match_type", e.target.value)}
+                      >
+                        <s-option value="any">Match any tag (OR)</s-option>
+                        <s-option value="all">Match all tags (AND)</s-option>
                       </s-select>
                     </s-grid>
                   )}
