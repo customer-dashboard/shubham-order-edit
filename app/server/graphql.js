@@ -895,8 +895,8 @@ export async function syncAnalytics(admin, shopDomain) {
       const yearStr = d.getFullYear();
       const key = `${dayStr}/${monthStr}/${yearStr}`;
       
-      const dayData = statsMap[key] || { stats: {}, total: 0 };
-      const s = dayData.stats ? Object.fromEntries(dayData.stats.map(item => [item.k, item.v])) : {};
+      const dayData = statsMap[key] || { stats: [], total: 0 };
+      const s = Array.isArray(dayData.stats) ? Object.fromEntries(dayData.stats.map(item => [item.k, item.v])) : {};
 
       last30daysdata[key] = {
         totaledits: dayData.total || 0,

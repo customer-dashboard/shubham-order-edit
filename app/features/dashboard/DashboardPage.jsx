@@ -126,6 +126,27 @@ export default function DashboardPage() {
     loaddata()
   }, [])
 
+  const prepareChartData = (backendData) => {
+    const filledData = [];
+    const statsMap = backendData || {};
+
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+      const yearStr = d.getFullYear();
+      const key = `${dayStr}/${monthStr}/${yearStr}`;
+      
+      const value = statsMap[key];
+      filledData.push({
+        key,
+        value: typeof value === 'object' && value !== null ? (value.totaledits || 0) : (Number(value) || 0)
+      });
+    }
+    return filledData;
+  };
+
   if (loading || isExtensionsLoading) {
     return null
   }
@@ -211,10 +232,7 @@ export default function DashboardPage() {
               data={[
                 {
                   name: "Total Edits",
-                  data: Object.entries(analyticsData?.last30daysdata || {}).map(([key, value]) => ({ 
-                    key, 
-                    value: typeof value === 'object' && value !== null ? (value.totaledits || 0) : (Number(value) || 0) 
-                  })),
+                  data: prepareChartData(analyticsData?.last30daysdata),
                 },
               ]}
               showLegend={false}

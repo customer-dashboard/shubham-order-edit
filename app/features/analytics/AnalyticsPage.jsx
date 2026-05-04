@@ -102,13 +102,13 @@ export default function AnalyticsPage() {
   return (
     <s-page heading="Detailed Analytics">
       {/* Date Picker Trigger (Top Right) */}
-      <s-stack gap="base" justifyContent="end" alignItems="end" paddingBlockEnd="base">
+      <s-stack gap="base" justifyContent="start" alignItems="start" paddingBlockEnd="base">
         <DateRangePickerWeb
           value={dateRange}
           onDateRangeSelect={(range) => setDateRange(range)}
         />
       </s-stack>
-      <s-grid gridTemplateColumns="1fr 1fr" alignItems="center" gap="base" paddingBlockEnd="base">
+      <s-grid gridTemplateColumns="1fr auto" alignItems="center" gap="base" paddingBlockEnd="base">
         <s-section heading="Total order">
           <s-heading variant="headingLg">{totalOrdersRange}</s-heading>
         </s-section>
