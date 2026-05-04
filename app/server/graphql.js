@@ -353,6 +353,7 @@ export async function getOrderDetails(admin, orderId) {
                 product {
                   id
                   title
+                  tags
                 }
                 quantity
                 currentQuantity

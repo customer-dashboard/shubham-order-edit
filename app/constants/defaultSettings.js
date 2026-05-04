@@ -40,6 +40,11 @@ export const DEFAULT_APP_SETTINGS = {
     status: "disable",
     tags: "",
     match_type: "any"
+  },
+  product_tags: {
+    status: "disable",
+    tags: "",
+    action: "disable_complete"
   }
 };
 

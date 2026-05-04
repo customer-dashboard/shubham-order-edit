@@ -149,23 +149,48 @@ function OrderStatusManager() {
             }
         }
 
+        // Check Product Tag Restriction
+        let restrictedItemIds = [];
+        if (appSettings.product_tags?.status === "enable") {
+            const forbiddenTags = (appSettings.product_tags.tags || "")
+                .split(",")
+                .map(t => t.trim().toLowerCase())
+                .filter(t => t);
+
+            if (forbiddenTags.length > 0) {
+                const lineItems = fullOrder?.lineItems?.edges || [];
+                const taggedItems = lineItems.filter(item => {
+                    const itemTags = (item.node?.product?.tags || []).map(t => t.toLowerCase());
+                    return forbiddenTags.some(tag => itemTags.includes(tag));
+                });
+
+                if (taggedItems.length > 0) {
+                    if (appSettings.product_tags.action === "disable_complete") {
+                        return { editable: false, reason: "product_tag_restriction_not_met" };
+                    } else {
+                        restrictedItemIds = taggedItems.map(item => item.node.id);
+                    }
+                }
+            }
+        }
+
         // Check Time Limit
         if (appSettings.time_limit?.status === "enable" && originalOrder?.createdAt) {
             const createdAt = new Date(originalOrder.createdAt);
             const now = new Date();
-            const diffMs = now - createdAt;
-            let limitMs = 0;
-            const timeVal = Number(appSettings.time_limit.time || 0);
-            const period = appSettings.time_limit.period || "minutes";
+            const diffInMs = now - createdAt;
 
-            if (period === "minutes") limitMs = timeVal * 60 * 1000;
-            else if (period === "hours") limitMs = timeVal * 60 * 60 * 1000;
-            else if (period === "days") limitMs = timeVal * 24 * 60 * 60 * 1000;
+            const limitValue = appSettings.time_limit.time || 0;
+            const limitPeriod = appSettings.time_limit.period || "minutes";
 
-            if (diffMs > limitMs) return { editable: false, reason: "time_limit_exceeded" };
+            let limitInMs = limitValue * 60 * 1000; // default minutes
+            if (limitPeriod === "hours") limitInMs = limitValue * 60 * 60 * 1000;
+            if (limitPeriod === "days") limitInMs = limitValue * 24 * 60 * 60 * 1000;
+
+            if (diffInMs > limitInMs) return { editable: false, reason: "time_limit_exceeded" };
         }
 
-        return { editable: true };
+        return { editable: true, restrictedItemIds };
     };
 
     const editability = getEditabilityStatus();
@@ -825,6 +850,14 @@ function OrderStatusManager() {
                     </s-box>
                 )}
 
+                {editability.reason === "product_tag_restriction_not_met" && (
+                    <s-box padding="base none">
+                        <s-banner tone="info">
+                            Order editing is unavailable because this order contains restricted items.
+                        </s-banner>
+                    </s-box>
+                )}
+
                 {globalEditable && (
                     <s-box border="base" borderRadius="base">
                         {edit_address == true &&
@@ -1069,46 +1102,73 @@ function OrderStatusManager() {
 
                                 {openEditLines && (
                                     <s-grid gap="base">
-                                        {(fullOrder?.lineItems?.edges ?? []).map((item, index) => (
-                                            <s-stack gap="base" inlineSize="100%" key={item.node?.id || index}>
-                                                <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base" inlineSize="100%">
-                                                    <s-stack direction="inline" gap="base" alignItems="center" inlineSize="65%">
-                                                        <s-stack blockSize="70px" inlineSize="70px">
-                                                            <s-image src={item?.node?.image?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={item.node?.image?.altText} borderRadius="large-100" border="base" />
+                                         {(fullOrder?.lineItems?.edges ?? []).map((item, index) => {
+                                            const isRestricted = editability.restrictedItemIds?.includes(item.node.id);
+                                            return (
+                                                <s-stack gap="base" inlineSize="100%" key={item.node?.id || index}>
+                                                    <s-stack direction="inline" justifyContent="space-between" alignItems="center" gap="base" inlineSize="100%">
+                                                        <s-stack direction="inline" gap="base" alignItems="center" inlineSize="65%">
+                                                            <s-stack blockSize="70px" inlineSize="70px">
+                                                                <s-image src={item?.node?.image?.url ?? "https://cdn.shopify.com/shopifycloud/customer-account-web/production/assets/placeholder-image.DbJ5S1V8.svg"} alt={item.node?.image?.altText} borderRadius="large-100" border="base" />
+                                                            </s-stack>
+                                                            <s-stack gap="small-500">
+                                                                <s-text type="generic" color="base">{item?.node?.name}</s-text>
+                                                                <s-text>Price: {formatPrice(
+                                                                    item?.node?.originalUnitPriceSet?.presentmentMoney?.amount || item?.node?.originalUnitPriceSet?.shopMoney?.amount,
+                                                                    item?.node?.originalUnitPriceSet?.presentmentMoney?.currencyCode || item?.node?.originalUnitPriceSet?.shopMoney?.currencyCode
+                                                                )}</s-text>
+                                                                {item.replaced_with && (
+                                                                    <s-text color="info" size="small">Replaced with: {item.replaced_with.title}</s-text>
+                                                                )}
+                                                                {item.remove && (
+                                                                    <s-text color="critical" size="small">Marked for removal</s-text>
+                                                                )}
+                                                                {isRestricted && (
+                                                                    <s-text color="warning" size="small">Editing restricted for this item</s-text>
+                                                                )}
+                                                            </s-stack>
                                                         </s-stack>
-                                                        <s-stack gap="small-500">
-                                                            <s-text type="generic" color="base">{item?.node?.name}</s-text>
-                                                            <s-text>Price: {formatPrice(
-                                                                item?.node?.originalUnitPriceSet?.presentmentMoney?.amount || item?.node?.originalUnitPriceSet?.shopMoney?.amount,
-                                                                item?.node?.originalUnitPriceSet?.presentmentMoney?.currencyCode || item?.node?.originalUnitPriceSet?.shopMoney?.currencyCode
-                                                            )}</s-text>
-                                                            {item.replaced_with && (
-                                                                <s-text color="info" size="small">Replaced with: {item.replaced_with.title}</s-text>
-                                                            )}
-                                                            {item.remove && (
-                                                                <s-text color="critical" size="small">Marked for removal</s-text>
-                                                            )}
-                                                        </s-stack>
-                                                    </s-stack>
-                                                    <s-stack direction="inline" alignItems="center" gap="base" justifyContent="end" inlineSize="auto">
-                                                        {!item.remove && (
-                                                            <s-number-field label="Qty" controls="stepper" defaultValue={String(item.node?.currentQuantity)} step={1} min={0} max={100} onChange={(val) => updateLineQty(index, val)} />
-                                                        )}
-                                                        <s-stack direction="inline" alignItems="center" gap="base">
+                                                        <s-stack direction="inline" alignItems="center" gap="base" justifyContent="end" inlineSize="auto">
                                                             {!item.remove && (
-                                                                <s-button variant="secondary" command="--show" commandFor="replacePanelModal" onClick={() => { setReplaceIndex(index); setProductSearchQuery(""); }}>
-                                                                    <s-icon type="reset" />
-                                                                </s-button>
+                                                                <s-number-field
+                                                                    label="Qty"
+                                                                    disabled={isRestricted}
+                                                                    controls="stepper"
+                                                                    defaultValue={String(item.node?.currentQuantity)}
+                                                                    step={1}
+                                                                    min={0}
+                                                                    max={100}
+                                                                    onChange={(val) => updateLineQty(index, val)}
+                                                                />
                                                             )}
-                                                            <s-button variant="secondary" tone={item.remove ? undefined : "critical"} inlineSize="auto" onClick={() => toggleRemove(index)}>
-                                                                {item.remove ? "Undo" : <s-icon type="delete" />}
-                                                            </s-button>
+                                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                                {!item.remove && (
+                                                                    <s-button
+                                                                        variant="secondary"
+                                                                        disabled={isRestricted}
+                                                                        command="--show"
+                                                                        commandFor="replacePanelModal"
+                                                                        onClick={() => { setReplaceIndex(index); setProductSearchQuery(""); }}
+                                                                    >
+                                                                        <s-icon type="reset" />
+                                                                    </s-button>
+                                                                )}
+                                                                <s-button
+                                                                    variant="secondary"
+                                                                    disabled={isRestricted}
+                                                                    tone={item.remove ? undefined : "critical"}
+                                                                    inlineSize="auto"
+                                                                    onClick={() => toggleRemove(index)}
+                                                                >
+                                                                    {item.remove ? "Undo" : <s-icon type="delete" />}
+                                                                </s-button>
+                                                            </s-stack>
                                                         </s-stack>
                                                     </s-stack>
+                                                    <s-divider />
                                                 </s-stack>
-                                                <s-divider />
-                                            </s-stack>
-                                        ))}
+                                            );
+                                        })}
 
                                         <s-stack direction="inline" justifyContent="end">
                                             {hasLineItemsChanges() && (

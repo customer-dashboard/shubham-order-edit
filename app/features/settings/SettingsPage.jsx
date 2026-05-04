@@ -51,6 +51,10 @@ export default function SettingsPage() {
               const finalSettings = {
                 ...DEFAULT_APP_SETTINGS,
                 ...savedSettings,
+                product_tags: {
+                  ...DEFAULT_APP_SETTINGS.product_tags,
+                  ...(savedSettings.product_tags || {}),
+                },
                 customer_tags: {
                   ...DEFAULT_APP_SETTINGS.customer_tags,
                   ...(savedSettings.customer_tags || {}),
@@ -143,6 +147,16 @@ export default function SettingsPage() {
       ...appSettings,
       customer_tags: {
         ...(appSettings.customer_tags || {}),
+        [field]: value,
+      },
+    });
+  };
+
+  const handleProductTagsChange = (field, value) => {
+    setAppSettings({
+      ...appSettings,
+      product_tags: {
+        ...(appSettings.product_tags || {}),
         [field]: value,
       },
     });
@@ -501,6 +515,7 @@ export default function SettingsPage() {
                       <s-text-field
                         label="Allowed Order Tags"
                         helpText="Comma separated tags (e.g. VIP, Priority)."
+                        placeholder="e.g. VIP, Priority"
                         value={appSettings.order_tags?.tags || ""}
                         onInput={(e) =>
                           handleOrderTagsChange("tags", e.target.value)
@@ -545,6 +560,7 @@ export default function SettingsPage() {
                       <s-text-field
                         label="Allowed Customer Tags"
                         helpText="Comma separated tags (e.g. VIP, Wholesale)."
+                        placeholder="e.g. VIP, Wholesale"
                         value={appSettings.customer_tags?.tags || ""}
                         onInput={(e) =>
                           handleCustomerTagsChange("tags", e.target.value)
@@ -557,6 +573,42 @@ export default function SettingsPage() {
                       >
                         <s-option value="any">Match any tag (OR)</s-option>
                         <s-option value="all">Match all tags (AND)</s-option>
+                      </s-select>
+                    </s-grid>
+                  )}
+                </s-stack>
+              </s-stack>
+            </s-section>
+            <s-section padding="none">
+              <s-stack gap="none" overflow="hidden">
+                <s-grid gridTemplateColumns="1fr auto" alignItems="center" padding="base">
+                  <s-box>
+                    <s-heading>Product Tags Restriction</s-heading>
+                  </s-box>
+                  <s-switch
+                    name="product_tags_restriction"
+                    checked={appSettings.product_tags?.status === "enable"}
+                    onChange={() => handleToggleSetting("product_tags")}
+                  />
+                </s-grid>
+                <s-divider />
+                <s-stack gap="base">
+                  {appSettings.product_tags?.status === "enable" && (
+                    <s-grid gridTemplateColumns="1fr" gap="base" padding="base">
+                      <s-text-field
+                        label="Product Tags"
+                        helpText="Orders containing products with these tags will be restricted."
+                        placeholder="e.g. no-edit, final-sale"
+                        value={appSettings.product_tags?.tags || ""}
+                        onInput={(e) => handleProductTagsChange("tags", e.target.value)}
+                      />
+                      <s-select
+                        label="When a tagged product is found in an order:"
+                        value={appSettings.product_tags?.action || "disable_complete"}
+                        onChange={(e) => handleProductTagsChange("action", e.target.value)}
+                      >
+                        <s-option value="disable_complete">Disable complete order editing</s-option>
+                        <s-option value="disable_items">Disable editing for tagged items only</s-option>
                       </s-select>
                     </s-grid>
                   )}
