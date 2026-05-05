@@ -197,7 +197,7 @@ export async function getAppSettings(admin) {
       query getAppSettingsMetafield {
         shop {
           id
-          metafield(namespace: "custlo_app", key: "app_settings") {
+          metafield(namespace: "order_editing", key: "app_settings") {
             value
           }
         }
@@ -254,7 +254,7 @@ export async function setAppConfig(admin, config) {
           metafields: [
             {
               key: "app_settings",
-              namespace: "custlo_app",
+              namespace: "order_editing",
               ownerId: shopGid,
               type: "json",
               value: JSON.stringify(config),

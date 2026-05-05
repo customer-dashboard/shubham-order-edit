@@ -30,7 +30,7 @@ export default function SettingsPage() {
                 shop {
                   id
                   name
-                  metafield(namespace: "custlo_app", key: "app_settings") {
+                  metafield(namespace: "order_editing", key: "app_settings") {
                     value
                   }
                 }
@@ -194,7 +194,7 @@ export default function SettingsPage() {
           variables: {
             metafields: [
               {
-                namespace: "custlo_app",
+                namespace: "order_editing",
                 key: "app_settings",
                 type: "json",
                 ownerId: shopId,
@@ -619,7 +619,7 @@ export default function SettingsPage() {
           <OrderPreview appSettings={appSettings} />
         </s-grid>
         <s-stack alignItems="center" padding="large">
-          <s-text>Learn more about <s-link href="">creating puzzles</s-link>.</s-text>
+          <s-text>Learn more about <s-link href="https://help.shopify.com" target="_blank">Order Editing</s-link>.</s-text>
         </s-stack>
       </s-page>
     </>

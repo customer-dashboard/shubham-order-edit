@@ -135,7 +135,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <s-page heading={`Welcome, ${shopName}`}>
+    <s-page heading={`Hello, ${shopName}! 👋`}>
       {isOrderEditActive ? (
         <s-banner
           heading="Order edits are active"
@@ -154,7 +154,7 @@ export default function DashboardPage() {
             cancelling and re‑ordering.
           </s-paragraph>
           <s-paragraph color="subdued">
-            Setup usually takes less than a minute and only needs to be done once.
+            Setup usually takes less than a mi  nute and only needs to be done once.
           </s-paragraph>
 
           <s-button
@@ -236,90 +236,144 @@ export default function DashboardPage() {
       {/* Feature Highlights Section */}
       <s-grid gridTemplateColumns="1fr 1fr" gap="base" paddingBlockEnd="base">
         <s-section>
-          <s-stack gap="loose">
+          <s-stack gap="small">
             <s-stack gap="tight">
-              <s-heading variant="headingMd">Master Order Management</s-heading>
-              <s-text color="subdued" variant="bodySm">Give your customers full control over their orders with advanced editing features.</s-text>
+              <s-heading variant="headingMd">Master Your Order Experience</s-heading>
+              <s-text color="subdued" variant="bodySm">
+                Give customers real-time control over their orders
+              </s-text>
             </s-stack>
 
             <s-stack gap="base">
               {[
-                "Effortless contact & shipping info updates",
-                "Smart product removals & quantity adjustments",
-                "Instant adding of new items to existing orders",
-                "Seamless automated refund processing"
+                "Quickly update contact details & shipping information",
+                "Easily remove products or adjust quantities anytime",
+                "Add new items to existing orders in seconds",
+                "Automatic refunds handled smoothly in the background"
               ].map(point => (
-                <s-stack key={point} direction="inline" gap="extraTight" alignItems="center">
-                  <s-icon type="checkmark" tone="success" size="small" />
+                <s-stack key={point} direction="inline" gap="small" alignItems="center">
+                  <s-icon type="check" tone="success" size="small" />
                   <s-text variant="bodySm">{point}</s-text>
                 </s-stack>
               ))}
             </s-stack>
 
             <s-button variant="primary" href="/settings" fullWidth>
-              Configure Features
+              Customize Order Controls
             </s-button>
           </s-stack>
         </s-section>
 
         <s-section>
-          <s-stack gap="loose">
+          <s-stack gap="small">
             <s-stack gap="tight">
-              <s-heading variant="headingMd">Control Editing Windows</s-heading>
-              <s-text color="subdued" variant="bodySm">Set precise time limits and rules for when orders can be modified.</s-text>
+              <s-heading variant="headingMd">Set Smart Editing Rules</s-heading>
+              <s-text color="subdued" variant="bodySm">
+                Stay in control by deciding exactly who can edit orders and when.
+              </s-text>
             </s-stack>
 
             <s-stack gap="base">
               {[
-                "Custom editing limits (30 mins to 24 hours)",
-                "Tag-based and customer-based restrictions",
-                "Automatic order status & tag synchronization",
-                "Real-time expiration tracking for customers"
+                "Flexible editing windows (from 30 minutes up to 24 hours)",
+                "Restrict access based on customer tags",
+                "Control permissions using order tags",
+                "Enable or block editing for specific product tags"
               ].map(point => (
-                <s-stack key={point} direction="inline" gap="extraTight" alignItems="center">
-                  <s-icon type="checkmark" tone="success" size="small" />
+                <s-stack key={point} direction="inline" alignItems="center" gap="small">
+                  <s-icon type="check" tone="success" size="small" />
                   <s-text variant="bodySm">{point}</s-text>
                 </s-stack>
               ))}
             </s-stack>
 
             <s-button variant="secondary" href="/settings" fullWidth>
-              Manage Time Settings
+              Configure Rules
             </s-button>
           </s-stack>
         </s-section>
       </s-grid>
 
-      {/* Recommended Apps Section */}
-      <s-section>
+
+      <s-section heading="Recommended apps">
         <s-grid
           gridTemplateColumns="1fr auto"
           alignItems="center"
           paddingBlockEnd="small-400"
         >
-          <s-heading>Recommended apps</s-heading>
         </s-grid>
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(240px, 1fr))"
           gap="base"
         >
+          {/* Featured app 1 */}
           <s-clickable
             href="https://apps.shopify.com/customer-dashboard-pro"
             border="base"
             borderRadius="base"
             padding="base"
             inlineSize="100%"
+            accessibilityLabel=""
           >
-            <s-grid gridTemplateColumns="auto 1fr auto" alignItems="stretch" gap="base">
+            <s-grid
+              gridTemplateColumns="auto 1fr auto"
+              alignItems="stretch"
+              gap="base"
+            >
               <s-thumbnail
                 size="small"
-                src="https://cdn.shopify.com/s/files/1/0667/0067/3266/files/Custlo_logo_design020.png?v=1749099271"
-                alt="Custlo icon"
+                src="https://cdn.shopify.com/app-store/listing_images/ee5b2c78feec2e8755c58cc3056c58f6/icon/CM29wYjDr40DEAE=.png"
+                alt="Custlo ‑ Customer accounts app icon"
               />
               <s-box>
-                <s-heading>Custlo : Customer Account Pro</s-heading>
-                <s-paragraph>Customize the customer account page with ease.</s-paragraph>
+                <s-heading>Custlo ‑ Customer accounts app</s-heading>
+                <s-paragraph> Free trial available</s-paragraph>
+                <s-paragraph>
+                  Turn boring customer account pages into Loyalty Suite: smart personalized AI customer account pages..
+                </s-paragraph>
               </s-box>
+              <s-stack justifyContent="start">
+                <s-button
+                  href="https://apps.shopify.com/customer-dashboard-pro"
+                  icon="download"
+                  accessibilityLabel="Custlo ‑ Customer accounts app"
+                />
+              </s-stack>
+            </s-grid>
+          </s-clickable>
+          {/* Featured app 2 */}
+          <s-clickable
+            href="https://apps.shopify.com/checkout-extensions-pro"
+            border="base"
+            borderRadius="base"
+            padding="base"
+            inlineSize="100%"
+            accessibilityLabel="Checkout Extensions Pro ‑ MT"
+          >
+            <s-grid
+              gridTemplateColumns="auto 1fr auto"
+              alignItems="stretch"
+              gap="base"
+            >
+              <s-thumbnail
+                size="small"
+                src="https://cdn.shopify.com/app-store/listing_images/f0744aa7ec85f7d412692b264a7613a6/icon/CLS1jNz6yo0DEAE=.png"
+                alt="Checkout Extensions Pro ‑ MT icon"
+              />
+              <s-box>
+                <s-heading>Checkout Extensions Pro ‑ MT</s-heading>
+                <s-paragraph>Free trial available</s-paragraph>
+                <s-paragraph>
+                  Powerful App for Checkout Custom Fields, Rules & Customization, Upsells, Conversion, Branding etc.
+                </s-paragraph>
+              </s-box>
+              <s-stack justifyContent="start">
+                <s-button
+                  href="https://apps.shopify.com/checkout-extensions-pro"
+                  icon="download"
+                  accessibilityLabel="Checkout Extensions Pro ‑ MT"
+                />
+              </s-stack>
             </s-grid>
           </s-clickable>
         </s-grid>
@@ -327,7 +381,7 @@ export default function DashboardPage() {
 
       <s-stack alignItems="center" paddingBlock="large">
         <s-text color="subdued">
-          Learn more about <s-link href="https://help.shopify.com" target="_blank">Order Editing</s-link>.
+          Learn more about <s-link href="https://help.shopify.com" target="_blank">Order Editing</s-link> or <s-link href="mailto:support@example.com">Contact Support</s-link>.
         </s-text>
       </s-stack>
     </s-page>

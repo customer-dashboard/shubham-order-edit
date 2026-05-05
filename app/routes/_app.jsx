@@ -34,7 +34,7 @@ export default function App() {
             query: `
               query getAppConfig {
                 shop {
-                  metafield(namespace: "custlo_app", key: "app_settings") {
+                  metafield(namespace: "order_editing", key: "app_settings") {
                     value
                   }
                 }

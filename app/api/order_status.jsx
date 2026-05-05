@@ -87,7 +87,7 @@ export const action = async ({ request }) => {
     const shopResponse = await admin.graphql(`
       query {
         shop {
-          metafield(namespace: "custlo_app", key: "app_settings") {
+          metafield(namespace: "order_editing", key: "app_settings") {
             value
           }
         }
