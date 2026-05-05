@@ -18,9 +18,7 @@ export const PricingCard = ({
                 boxShadow: featuredText ? '0px 0px 15px 4px #CDFEE1' : 'none',
                 borderRadius: '.75rem',
                 position: 'relative',
-                zIndex: '0',
-                border: '1px solid #e1e3e5',
-                backgroundColor: 'white'
+                zIndex: '0'
             }}
         >
             {featuredText ? (
@@ -73,71 +71,77 @@ const PLANS = [
     {
         id: "free",
         plan_id: "plan_free_v1",
-        title: "Free",
-        description: "Great for testing and basic customizations",
-        monthlyPrice: "$0",
+        edit_limit: -1, // Unlimited
+        title: "Development",
+        description: "For testing on development stores",
+        monthlyPrice: "Free",
         monthlyPriceValue: 0,
         shopifyHandle: "free",
         features: [
-            "Customer Feedback Survey",
-            "Payment Methods Customizations",
-            "Shipping Methods Customizations",
-            "Discounts",
-            "Checkout Branding"
+            "Unlimited Order Edits",
+            "Shipping Address Editing",
+            "Phone Number Editing",
+            "Order Line Items Editing",
+            "Adding More Products",
+            "Discount Code & Invoices",
+            "All Restrictions unlocked"
         ]
     },
     {
         id: "starter",
         plan_id: "plan_starter_v1",
+        edit_limit: 50,
         title: "Starter",
-        description: "Everything in Free, plus essential widgets",
+        description: "Perfect for small stores",
         monthlyPrice: "$8",
         monthlyPriceValue: 8.00,
         shopifyHandle: "starter",
         features: [
-            "Everything in free",
-            "Progress Bar",
-            "Free Shipping Bar",
-            "Testimonials",
-            "Motivational Quotes",
-            "Single Line Text Field",
-            "Builtin checkout branding templates"
+            "50 Order Edits / month",
+            "Shipping Address Editing",
+            "Phone Number Editing",
+            "Delivery Instructions",
+            "Time Limit Restriction",
+            "Order Tags Restriction",
+            "Standard Support"
         ]
     },
     {
         id: "growth",
         plan_id: "plan_growth_v1",
+        edit_limit: 100,
         title: "Growth",
-        featuredText: "Most Popular",
-        description: "Advanced features for growing stores",
+        featuredText: "Best Value",
+        description: "For growing stores",
         monthlyPrice: "$20",
         monthlyPriceValue: 20.00,
         shopifyHandle: "growth",
         features: [
-            "Everything in starter",
-            "Age Validator",
-            "Address Blocker",
-            "Appointment Picker",
-            "Checkout Upsell (1)",
-            "Post Purchase Upsells",
-            "Custom Field (1)"
+            "100 Order Edits / month",
+            "Everything in Starter",
+            "Order Line Items Editing",
+            "Adding More Products",
+            "Discount Code Editing",
+            "Customer Tags Restriction",
+            "Priority Support"
         ]
     },
     {
         id: "enterprise",
         plan_id: "plan_enterprise_v1",
+        edit_limit: -1, // Unlimited
         title: "Enterprise",
-        description: "Full power with unlimited possibilities",
+        description: "Full power for high volume",
         monthlyPrice: "$40",
         monthlyPriceValue: 40.00,
         shopifyHandle: "enterprise",
         features: [
-            "Everything in growth",
-            "Unlimited checkout upsells",
-            "Unlimited custom fields",
-            "3rd Party App Integrations",
-            "Analytics",
-            "New Feature request"
+            "Unlimited Order Edits",
+            "Everything in Growth",
+            "Invoice Download",
+            "Product Tags Restriction",
+            "Custom Feature Requests",
+            "Dedicated Account Manager"
         ]
     }
 ];
@@ -222,7 +226,7 @@ export default function PlansPage() {
 
     return (
         <s-page heading="Plans">
-            <s-stack direction="inline" gap="large" alignItems="start" justifyContent="start">
+            <s-grid gap="base" gridTemplateColumns="1fr 1fr 1fr">
                 {PLANS.map((plan) => (
                     <PricingCard
                         key={plan.id}
@@ -243,7 +247,7 @@ export default function PlansPage() {
                         }}
                     />
                 ))}
-            </s-stack>
+            </s-grid>
             <Footer />
         </s-page>
     );

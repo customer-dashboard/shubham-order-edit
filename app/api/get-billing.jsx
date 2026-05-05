@@ -45,6 +45,7 @@ export async function loader({ request }) {
       id: activeSub.id,
       test: activeSub.test,
       plan_id: billingConfig[activeSub.name.toLowerCase()]?.id || `plan_${activeSub.name.toLowerCase()}_v1`,
+      edit_limit: billingConfig[activeSub.name.toLowerCase()]?.edit_limit || -1,
       plan_date: new Date().toISOString()
     };
     

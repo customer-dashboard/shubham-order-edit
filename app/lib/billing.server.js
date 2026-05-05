@@ -1,11 +1,12 @@
 import { BillingInterval } from "@shopify/shopify-api";
-import { db } from "../mongodb.server";
+import { db, activities as activitiesCol } from "../mongodb.server";
 
 export const IS_TEST_MODE = true;
 
 export const billingConfig = {
   "free": {
     id: "plan_free_v1",
+    edit_limit: -1,
     amount: 0,
     currencyCode: "USD",
     interval: BillingInterval.Every30Days,
@@ -13,6 +14,7 @@ export const billingConfig = {
   },
   "starter": {
     id: "plan_starter_v1",
+    edit_limit: 50,
     amount: 8.0,
     currencyCode: "USD",
     interval: BillingInterval.Every30Days,
@@ -20,6 +22,7 @@ export const billingConfig = {
   },
   "growth": {
     id: "plan_growth_v1",
+    edit_limit: 100,
     amount: 20.0,
     currencyCode: "USD",
     interval: BillingInterval.Every30Days,
@@ -27,6 +30,7 @@ export const billingConfig = {
   },
   "enterprise": {
     id: "plan_enterprise_v1",
+    edit_limit: -1,
     amount: 40.0,
     currencyCode: "USD",
     interval: BillingInterval.Every30Days,
@@ -34,6 +38,7 @@ export const billingConfig = {
   },
   "starter_yearly": {
     id: "plan_starter_yearly_v1",
+    edit_limit: 50,
     amount: 76.80, // (8 * 12) - 20%
     currencyCode: "USD",
     interval: BillingInterval.Annual,
@@ -41,6 +46,7 @@ export const billingConfig = {
   },
   "growth_yearly": {
     id: "plan_growth_yearly_v1",
+    edit_limit: 100,
     amount: 192.00, // (20 * 12) - 20%
     currencyCode: "USD",
     interval: BillingInterval.Annual,
@@ -48,6 +54,7 @@ export const billingConfig = {
   },
   "enterprise_yearly": {
     id: "plan_enterprise_yearly_v1",
+    edit_limit: -1,
     amount: 384.00, // (40 * 12) - 20%
     currencyCode: "USD",
     interval: BillingInterval.Annual,
@@ -179,6 +186,7 @@ export async function confirmBillingPlan(session, chargeId) {
       id: fullId,
       name: subscription.name.toLowerCase(),
       plan_id: billingConfig[subscription.name.toLowerCase()]?.id || `plan_${subscription.name.toLowerCase()}_v1`,
+      edit_limit: billingConfig[subscription.name.toLowerCase()]?.edit_limit || -1,
       test: subscription.test,
       price: subscription.lineItems?.[0]?.plan?.appRecurringPricingDetails?.price?.amount,
       plan_date: new Date().toISOString()
@@ -342,4 +350,73 @@ export async function stopTrialTracking(shop) {
   } catch (error) {
     console.error("Error in stopTrialTracking:", error);
   }
+}
+
+/**
+ * Usage Limit & Status Sync
+ */
+
+export async function getCurrentMonthEditCount(shop) {
+  try {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const count = await activitiesCol.countDocuments({
+      shop: shop,
+      type: { $in: ["ORDER_UPDATE", "ITEM_REMOVED", "PRODUCT_ADDED", "ITEM_REPLACED"] },
+      createdAt: { $gte: startOfMonth }
+    });
+    return count;
+  } catch (error) {
+    console.error("Error counting monthly edits:", error);
+    return 0;
+  }
+}
+
+export async function syncUsageStatus(session, admin) {
+  try {
+    const shop = session.shop;
+    let billingPlan = await GetMongoDB(shop, "billing_plan");
+    billingPlan = billingPlan && billingPlan !== '""' ? JSON.parse(billingPlan) : null;
+
+    if (!billingPlan) return;
+
+    const limit = billingPlan.edit_limit || -1;
+    if (limit === -1) {
+      // Unlimited
+      await updateUsageMetafield(admin, session, false);
+      return;
+    }
+
+    const currentCount = await getCurrentMonthEditCount(shop);
+    const limitReached = currentCount >= limit;
+
+    await updateUsageMetafield(admin, session, limitReached);
+    console.log(`[Usage] ${shop}: ${currentCount}/${limit}. Limit Reached: ${limitReached}`);
+  } catch (error) {
+    console.error("Error syncing usage status:", error);
+  }
+}
+
+async function updateUsageMetafield(admin, session, limitReached) {
+  const shopData = await getDatabyQuery(session, { query: `{ shop { id } }` });
+  const shopID = shopData.data.shop.id;
+
+  await getDatabyQuery(session, {
+    query: `mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafields) {
+        userErrors { field message }
+      }
+    }`,
+    variables: {
+      metafields: [{
+        key: "limit_reached",
+        namespace: "order_edit_pro",
+        ownerId: shopID,
+        type: "boolean",
+        value: limitReached ? "true" : "false"
+      }]
+    }
+  });
 }

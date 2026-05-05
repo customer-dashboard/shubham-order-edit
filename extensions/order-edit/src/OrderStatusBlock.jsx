@@ -105,6 +105,11 @@ function OrderStatusManager() {
         if (!appSettings) return { editable: true };
         if (appSettings.status === "disable") return { editable: false, reason: "app_disabled" };
 
+        // --- CHECK MONTHLY LIMIT ---
+        if (appSettings.limit_reached === true) {
+            return { editable: false, reason: "limit_reached" };
+        }
+
         // Check Tag Restriction
         if (appSettings.order_tags?.status === "enable") {
             const allowedTags = (appSettings.order_tags.tags || "")
@@ -827,6 +832,10 @@ function OrderStatusManager() {
                 </s-stack>
             </s-section>
         );
+    }
+
+    if (!globalEditable && editability.reason === "limit_reached") {
+        return null;
     }
 
     return (

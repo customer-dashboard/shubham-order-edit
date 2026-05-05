@@ -90,6 +90,9 @@ export const action = async ({ request }) => {
           metafield(namespace: "order_editing", key: "app_settings") {
             value
           }
+          usageLimit: metafield(namespace: "order_edit_pro", key: "limit_reached") {
+            value
+          }
         }
       }
     `);
@@ -97,6 +100,9 @@ export const action = async ({ request }) => {
     const settingsValue = shopSettingsJson.data?.shop?.metafield?.value;
     let settings = settingsValue ? { ...DEFAULT_APP_SETTINGS, ...JSON.parse(settingsValue) } : DEFAULT_APP_SETTINGS;
     
+    // Add usage limit status
+    settings.limit_reached = shopSettingsJson.data?.shop?.usageLimit?.value === "true";
+
     // Fix for stores stuck with old buggy defaults
     if (settings.time_limit?.status === "enable" && (Number(settings.time_limit.time) === 0 || !settings.time_limit.time)) {
       settings.time_limit.status = "disable";

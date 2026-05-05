@@ -1,5 +1,6 @@
 import { authenticate, unauthenticated } from "../shopify.server";
 import { orderEditBegin, orderEditAddVariant, orderEditCommit, orderEditSetQuantity, logActivity } from "../server/graphql";
+import { getCurrentMonthEditCount, syncUsageStatus, GetMongoDB } from "../lib/billing.server";
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -19,7 +20,21 @@ export const action = async ({ request }) => {
     const { Target, id, updated } = body;
 
     // Get Admin client for the shop
-    const { admin } = await unauthenticated.admin(shopDomain);
+    const { admin, session } = await unauthenticated.admin(shopDomain);
+
+    // --- CHECK EDIT LIMIT ---
+    let billingPlan = await GetMongoDB(shopDomain, "billing_plan");
+    billingPlan = billingPlan && billingPlan !== '""' ? JSON.parse(billingPlan) : null;
+    
+    if (billingPlan && billingPlan.edit_limit !== -1) {
+      const currentCount = await getCurrentMonthEditCount(shopDomain);
+      if (currentCount >= billingPlan.edit_limit) {
+        return cors(new Response(JSON.stringify({ 
+          status: 403, 
+          error: "Monthly edit limit reached. Please upgrade your plan to continue editing." 
+        }), { status: 403 }));
+      }
+    }
 
     if (Target === "UPDATE_ORDER") {
       const orderId = id;
@@ -127,6 +142,9 @@ export const action = async ({ request }) => {
         orderName: orderName,
         message: activityMsg
       });
+
+      // Sync usage status after successful edit
+      await syncUsageStatus(session, admin);
 
       return cors(new Response(JSON.stringify({ status: 200, data: commitRes.data.orderEditCommit.order })));
     }

@@ -4,7 +4,6 @@ import {
   getDatabyQuery,
   GetMongoDB,
   MongoDB_2,
-  appPlanUpdateDataToBrevo,
   dateDiffInDays,
   CurrentDate,
   IS_TEST_MODE,
@@ -36,9 +35,12 @@ export async function action({ request }) {
 
   if (name == "free") {
     let getdata = await GetMongoDB(session.shop, "shop_info");
-    getdata = JSON.parse(getdata);
-    let brevodata = { name: "Free", email: getdata?.email || "" };
-    await appPlanUpdateDataToBrevo(brevodata);
+    try {
+      getdata = getdata && getdata !== '""' ? JSON.parse(getdata) : null;
+    } catch (e) {
+      getdata = null;
+    }
+    // appPlanUpdateDataToBrevo removed as it is not implemented
 
     if (planResult.data?.currentAppInstallation?.activeSubscriptions?.[0]) {
       await getDatabyQuery(session, {
