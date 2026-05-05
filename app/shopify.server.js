@@ -14,7 +14,7 @@ const shopify = shopifyApp({
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new MongoDBSessionStorage(
-    "mongodb+srv://testingchatbot123:testingchatbot123@kingofgk.xlmgrbr.mongodb.net/?appName=Kingofgk",
+    process.env.MONGODB_URI || "mongodb://localhost:27017",
     "order-edit",
     { sessionCollectionName: "session_data" }
   ),
@@ -26,6 +26,18 @@ const shopify = shopifyApp({
     APP_UNINSTALLED: {
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/app/uninstalled",
+    },
+    CUSTOMERS_REDACT: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/customers/redact",
+    },
+    CUSTOMERS_DATA_REQUEST: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/customers/data_request",
+    },
+    SHOP_REDACT: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/shop/redact",
     },
   },
   ...(process.env.SHOP_CUSTOM_DOMAIN

@@ -27,7 +27,7 @@ export const DEFAULT_APP_SETTINGS = {
     status: "disable"
   },
   time_limit: {
-    status: "enable",
+    status: "disable",
     time: 0,
     period: "minutes"
   },

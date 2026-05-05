@@ -4,21 +4,22 @@ import { useState, useRef, useEffect } from "preact/hooks";
 import countries from "./countries";
 import COUNTRY_STATES from "./country-states";
 
-export default async () => {
+export default () => {
     render(<OrderStatusManager />, document.body);
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://shakira-millennium-universities-continent.trycloudflare.com";
+const BASEURL = "https://visible-hospital-genes-people.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
-    console.log("shopify====", shopify)
+    const shopify_api = typeof shopify !== 'undefined' ? shopify : {};
+    console.log("Extension initialized", shopify_api);
     // Helper to check if a feature is enabled
     const isEnabled = (key) => {
-        if (!appSettings) return true; // Default to true or use a default settings object
+        if (!appSettings) return false;
         if (appSettings.status === "disable") return false;
-        return appSettings[key]?.status !== "disable";
+        return appSettings[key]?.status === "enable";
     };
 
     const edit_address = isEnabled("shipping_address_editing");
@@ -30,7 +31,6 @@ function OrderStatusManager() {
     const add_products = isEnabled("adding_more_products");
 
     const view = shopify.extension.editor;
-    console.log("idfoksdfk====", view)
     const orderId = shopify.order?.value?.id;
     const sessionToken = shopify.sessionToken;
 
@@ -241,7 +241,12 @@ function OrderStatusManager() {
                     fetch(`${BASEURL}/api/order-status`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                        body: JSON.stringify({ Target: "GET_ORDER_DETAILS", id: orderId, countryCode }),
+                        body: JSON.stringify({
+                            Target: "GET_ORDER_DETAILS",
+                            id: orderId,
+                            countryCode,
+                            shop: shopify.shop?.myshopifyDomain
+                        }),
                     }),
                     fetch(`${BASEURL}/api/products_search`, {
                         method: "POST",
@@ -300,6 +305,7 @@ function OrderStatusManager() {
 
             } catch (err) {
                 console.error("loadData error:", err);
+                shopify.toast.show("Error connecting to server. Please check your internet or tunnel.");
             } finally {
                 setLoading(false);
             }
@@ -826,6 +832,14 @@ function OrderStatusManager() {
     return (
         <s-stack>
             <s-section>
+                {!appSettings && !loading && (
+                    <s-box padding="base none">
+                        <s-banner tone="critical">
+                            Unable to load app settings. Please check your internet connection or contact support.
+                        </s-banner>
+                    </s-box>
+                )}
+
                 {editability.reason === "time_limit_exceeded" && (
                     <s-box padding="base none">
                         <s-banner tone="info">
@@ -1102,7 +1116,7 @@ function OrderStatusManager() {
 
                                 {openEditLines && (
                                     <s-grid gap="base">
-                                         {(fullOrder?.lineItems?.edges ?? []).map((item, index) => {
+                                        {(fullOrder?.lineItems?.edges ?? []).map((item, index) => {
                                             const isRestricted = editability.restrictedItemIds?.includes(item.node.id);
                                             return (
                                                 <s-stack gap="base" inlineSize="100%" key={item.node?.id || index}>

@@ -6,6 +6,7 @@ export default function OnboardingPage({ isReset }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isExtensionActive, setIsExtensionActive] = useState(false);
   const [isCheckingExtension, setIsCheckingExtension] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   const navigate = useNavigate();
 
   const steps = [
@@ -57,27 +58,48 @@ export default function OnboardingPage({ isReset }) {
   };
 
   const handleToggleSetting = (key) => {
+    setHasInteracted(true);
+    const currentStatus = config?.[key]?.status || "disable";
+    const nextStatus = currentStatus === "enable" ? "disable" : "enable";
+    
     const updated = {
       ...config,
-      appSettings: {
-        ...config.appSettings,
-        [key]: config.appSettings?.[key] === "enable" || config.appSettings?.[key] === true ? "disable" : "enable"
+      [key]: {
+        ...config[key],
+        status: nextStatus
       }
     };
-    // For boolean settings if they exist
-    if (typeof config.appSettings?.[key] === "boolean") {
-        updated.appSettings[key] = !config.appSettings[key];
-    }
     setConfig(updated);
   };
 
   const nav = (dir) => {
     const next = currentStep + dir;
     if (next < 0 || next >= steps.length) return;
+
+    let updatedConfig = { ...config };
+
+    // SMART LOGIC: If moving from Settings step (1) to next, and NO interaction was made, enable everything
+    if (currentStep === 1 && dir === 1 && !hasInteracted) {
+      const coreFeatures = [
+        "shipping_address_editing",
+        "phone_number_editing",
+        "order_line_items_editing",
+        "adding_more_products",
+        "discount_code",
+        "invoice_download",
+        "delivery_instructions"
+      ];
+      coreFeatures.forEach(key => {
+        updatedConfig[key] = { ...updatedConfig[key], status: "enable" };
+      });
+      // Ensure time limit is disabled unless merchant explicitly enabled it (not in onboarding)
+      updatedConfig.time_limit = { ...updatedConfig.time_limit, status: "disable" };
+    }
+
     const updated = {
-      ...config,
+      ...updatedConfig,
       onboarding: {
-        ...config.onboarding,
+        ...updatedConfig.onboarding,
         step: next,
       },
     };
@@ -101,21 +123,20 @@ export default function OnboardingPage({ isReset }) {
   // Helper to get list of enabled features for summary
   const getEnabledFeatures = () => {
     const features = [
-      { key: "edit_address", label: "Address Editing" },
-      { key: "edit_phone", label: "Phone Number Updates" },
-      { key: "edit_order_lines", label: "Product Quantity Changes" },
-      { key: "add_products", label: "Adding New Products" },
-      { key: "apply_discount", label: "Discount Code Application" },
-      { key: "download_invoice", label: "Invoice Downloads" },
+      { key: "shipping_address_editing", label: "Address Editing" },
+      { key: "phone_number_editing", label: "Phone Number Updates" },
+      { key: "order_line_items_editing", label: "Product Quantity Changes" },
+      { key: "adding_more_products", label: "Adding New Products" },
+      { key: "discount_code", label: "Discount Code Application" },
+      { key: "invoice_download", label: "Invoice Downloads" },
     ];
-    return features.filter(f => config.appSettings?.[f.key] === "enable" || config.appSettings?.[f.key] === true);
+    return features.filter(f => config?.[f.key]?.status === "enable");
   };
 
   return (
-    <s-page inlineSize="small">
+    <s-page inlineSize="base">
       <s-box paddingBlockStart="large">
         <s-stack gap="base">
-
           {/* Progress Bar */}
           <s-stack gap="extraTight">
             <s-stack direction="inline" justifyContent="space-between" alignItems="center">
@@ -145,34 +166,47 @@ export default function OnboardingPage({ isReset }) {
           </s-stack>
 
           <s-stack gap="none">
-            <s-section>
+            <s-section inlineSize="small">
               {/* STEP 0: Welcome & Benefits */}
               {currentStep === 0 && (
-                <s-stack gap="loose">
+                <s-grid gridTemplateColumns="2fr 1fr">
                   <s-stack gap="base">
-                    <s-heading variant="headingLg">Welcome to Order Edit Pro!</s-heading>
-                    <s-paragraph color="subdued">
-                      Empower your customers to manage their own orders, reducing support tickets and increasing satisfaction.
-                    </s-paragraph>
-                  </s-stack>
+                    <s-stack gap="small">
+                      <s-heading lavel="1">Welcome to Order Edit Pro!</s-heading>
+                      <s-paragraph color="subdued">
+                        Empower your customers to manage their own orders, reducing support tickets and increasing satisfaction.
+                      </s-paragraph>
+                    </s-stack>
 
-                  <s-grid gridTemplateColumns="1fr 1fr" gap="base">
-                    <s-box padding="base" border="base" borderRadius="base" background="success-secondary">
+                    <s-grid gridTemplateColumns="1fr 1fr" gap="base">
+                      <s-box padding="base" border="base" borderRadius="base" background="success-secondary">
                         <s-stack gap="tight">
-                            <s-icon type="customer" tone="success" />
-                            <s-text tone="bold">Happier Customers</s-text>
-                            <s-text color="subdued" variant="bodySm">Let them fix mistakes instantly without waiting for support.</s-text>
+                          <s-text tone="bold">Happier Customers</s-text>
+                          <s-text color="subdued" variant="bodySm">Let them fix mistakes instantly without waiting for support.</s-text>
                         </s-stack>
-                    </s-box>
-                    <s-box padding="base" border="base" borderRadius="base" background="info-secondary">
+                      </s-box>
+                      <s-box padding="base" border="base" borderRadius="base" background="info-secondary">
                         <s-stack gap="tight">
-                            <s-icon type="note" tone="info" />
-                            <s-text tone="bold">Fewer Tickets</s-text>
-                            <s-text color="subdued" variant="bodySm">Reduce manual work for address changes and item swaps.</s-text>
+                          <s-text tone="bold">Fewer Tickets</s-text>
+                          <s-text color="subdued" variant="bodySm">Reduce manual work for address changes and item swaps.</s-text>
                         </s-stack>
-                    </s-box>
-                  </s-grid>
-                </s-stack>
+                      </s-box>
+                      <s-box padding="base" border="base" borderRadius="base" background="warning-secondary">
+                        <s-stack gap="tight">
+                          <s-text tone="bold">Instant Resolution</s-text>
+                          <s-text color="subdued" variant="bodySm">Customers resolve issues 24/7 without needing your team.</s-text>
+                        </s-stack>
+                      </s-box>
+                      <s-box padding="base" border="base" borderRadius="base" background="surface-secondary-active">
+                        <s-stack gap="tight">
+                          <s-text tone="bold">Professional Experience</s-text>
+                          <s-text color="subdued" variant="bodySm">Modern self-serve portal that builds trust with your brand.</s-text>
+                        </s-stack>
+                      </s-box>
+                    </s-grid>
+                  </s-stack>
+                  <s-image src="https://cdn.shopify.com/s/files/1/0649/8743/1125/files/image_8.png?v=1776924944" alt="" />
+                </s-grid>
               )}
 
               {/* STEP 1: Quick Settings */}
@@ -187,26 +221,26 @@ export default function OnboardingPage({ isReset }) {
 
                   <s-box border="base" borderRadius="base">
                     <s-stack gap="none">
-                        {[
-                            { key: "edit_address", label: "Allow Address Editing", icon: "truck" },
-                            { key: "edit_phone", label: "Allow Phone Editing", icon: "mobile" },
-                            { key: "edit_order_lines", label: "Allow Item Quantity Changes", icon: "order" },
-                            { key: "add_products", label: "Allow Adding Products", icon: "plus" },
-                            { key: "apply_discount", label: "Allow Discount Codes", icon: "discount" },
-                            { key: "download_invoice", label: "Allow Invoice Download", icon: "note" },
-                        ].map((f, i, arr) => (
-                            <s-box key={f.key}>
-                                <s-grid gridTemplateColumns="auto 1fr auto" alignItems="center" gap="base" padding="base">
-                                    <s-icon type={f.icon} size="small" />
-                                    <s-text tone="bold">{f.label}</s-text>
-                                    <s-switch
-                                        checked={config.appSettings?.[f.key] === "enable" || config.appSettings?.[f.key] === true}
-                                        onChange={() => handleToggleSetting(f.key)}
-                                    />
-                                </s-grid>
-                                {i < arr.length - 1 && <s-divider />}
-                            </s-box>
-                        ))}
+                      {[
+                        { key: "shipping_address_editing", label: "Allow Address Editing", icon: "truck" },
+                        { key: "phone_number_editing", label: "Allow Phone Editing", icon: "mobile" },
+                        { key: "order_line_items_editing", label: "Allow Item Quantity Changes", icon: "order" },
+                        { key: "adding_more_products", label: "Allow Adding Products", icon: "plus" },
+                        { key: "discount_code", label: "Allow Discount Codes", icon: "discount" },
+                        { key: "invoice_download", label: "Allow Invoice Download", icon: "note" },
+                      ].map((f, i, arr) => (
+                        <s-box key={f.key}>
+                          <s-grid gridTemplateColumns="auto 1fr auto" alignItems="center" gap="base" padding="base">
+                            <s-icon type={f.icon} size="small" />
+                            <s-text tone="bold">{f.label}</s-text>
+                            <s-switch
+                              checked={config?.[f.key]?.status === "enable"}
+                              onChange={() => handleToggleSetting(f.key)}
+                            />
+                          </s-grid>
+                          {i < arr.length - 1 && <s-divider />}
+                        </s-box>
+                      ))}
                     </s-stack>
                   </s-box>
                 </s-stack>
@@ -224,9 +258,9 @@ export default function OnboardingPage({ isReset }) {
 
                   <s-box padding="base" border="base" borderRadius="base" background="surface-secondary-active">
                     <s-stack gap="tight">
-                        <s-text tone="bold">1. Click "Open Editor" below.</s-text>
-                        <s-text tone="bold">2. Click "Add block" on the left panel.</s-text>
-                        <s-text tone="bold">3. Select "Order Edit" and save.</s-text>
+                      <s-text tone="bold">1. Click "Open Editor" below.</s-text>
+                      <s-text tone="bold">2. Click "Add block" on the left panel.</s-text>
+                      <s-text tone="bold">3. Select "Order Edit" and save.</s-text>
                     </s-stack>
                   </s-box>
 
@@ -262,33 +296,17 @@ export default function OnboardingPage({ isReset }) {
 
               {/* STEP 3: Complete */}
               {currentStep === 3 && (
-                <s-stack gap="loose">
-                  <s-stack gap="base" alignItems="center">
-                    <div style={{ fontSize: "48px" }}>🚀</div>
-                    <s-heading variant="displayMd">Ready to Go!</s-heading>
-                    <s-text>Your order editing experience is configured and ready.</s-text>
-                  </s-stack>
-
-                  <s-box padding="base" border="base" borderRadius="base">
-                    <s-stack gap="tight">
-                        <s-text tone="bold">Enabled Features:</s-text>
-                        <s-stack direction="inline" gap="tight" wrap="wrap">
-                            {getEnabledFeatures().map(f => (
-                                <s-badge key={f.key} tone="success">{f.label}</s-badge>
-                            ))}
-                            {getEnabledFeatures().length === 0 && <s-text color="subdued">No features enabled yet.</s-text>}
-                        </s-stack>
-                    </s-stack>
+                <s-stack gap="small" alignItems="center">
+                  <s-box inlineSize="150px">
+                    <s-image
+                      src="https://as2.ftcdn.net/jpg/03/31/43/67/1000_F_331436731_6juLGFXf8VFGTxORH26ITUH0I6y1fPFb.jpg"
+                      alt="Main view"
+                      aspectRatio="1/1"
+                      objectFit="cover"
+                    />
                   </s-box>
-
-                  <s-box padding="base" border="base" borderRadius="base" background="info-secondary">
-                    <s-stack gap="tight" alignItems="center">
-                        <s-text tone="bold">We'd love your feedback!</s-text>
-                        <s-text variant="bodySm">If you find the app helpful, please leave us a 5-star rating.</s-text>
-                        <div style={{ fontSize: "24px", letterSpacing: "4px" }}>⭐⭐⭐⭐⭐</div>
-                    </s-stack>
-                  </s-box>
-
+                  <s-heading variant="headingLg">Ready to Go!</s-heading>
+                  <s-text color="subdued">Your order editing experience is configured and ready.</s-text>
                   <s-button variant="primary" onClick={finish} fullWidth>
                     Go to Dashboard →
                   </s-button>

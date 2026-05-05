@@ -7,7 +7,6 @@ import { DEFAULT_ANALYTICS } from "../../constants/defaultSettings";
 
 
 export default function DashboardPage() {
-  const [activities, setActivities] = useState([]);
   const [metrics, setMetrics] = useState({ totalEdits: 0, todayEdits: 0, yesterdayEdits: 0, change: 0 });
   const [shopName, setShopName] = useState("");
   const [loading, setLoading] = useState(true);
@@ -61,19 +60,9 @@ export default function DashboardPage() {
           })()
         }).then(r => r.json());
 
-        const activitiesPromise = fetch('/app/fetch-data', {
-          method: 'POST',
-          body: (() => {
-            const fd = new FormData();
-            fd.append("_action", "GET_RECENT_ACTIVITY");
-            return fd;
-          })()
-        }).then(r => r.json());
-
-        const [shopResp, metricsResp, activitiesResp] = await Promise.all([
+        const [shopResp, metricsResp] = await Promise.all([
           shopPromise,
-          metricsPromise,
-          activitiesPromise
+          metricsPromise
         ]);
 
         // 1. Handle Shop & Metafield Data
@@ -84,7 +73,6 @@ export default function DashboardPage() {
             try {
               const parsed = JSON.parse(metaValue);
               setAnalyticsData(prev => ({ ...prev, ...parsed }));
-              if (parsed.last10activity) setActivities(parsed.last10activity);
             } catch (e) { console.error("Metafield parse error:", e); }
           }
         }
@@ -96,11 +84,6 @@ export default function DashboardPage() {
         // 2. Handle Backend Metrics (Fallback/Sync)
         if (metricsResp.data?.analytics) {
           setAnalyticsData(prev => ({ ...prev, ...metricsResp.data.analytics }));
-        }
-
-        // 3. Handle Backend Activities
-        if (activitiesResp.data?.activities) {
-          setActivities(activitiesResp.data.activities);
         }
 
         // 4. Handle Extensions Status (Non-blocking)
@@ -137,7 +120,7 @@ export default function DashboardPage() {
       const monthStr = String(d.getMonth() + 1).padStart(2, '0');
       const yearStr = d.getFullYear();
       const key = `${dayStr}/${monthStr}/${yearStr}`;
-      
+
       const value = statsMap[key];
       filledData.push({
         key,
@@ -189,7 +172,6 @@ export default function DashboardPage() {
         <s-section heading="Total Orders">
           <s-heading variant="headingLg">{totalOrders}</s-heading>
         </s-section>
-        {console.log(metrics, 'metrics')}
         <s-section heading="Total Edited Orders">
           <s-heading variant="headingLg">{analyticsData?.totalorderedit || metrics?.totalEdits || 0}</s-heading>
         </s-section>
@@ -227,77 +209,86 @@ export default function DashboardPage() {
           </s-grid>
 
           <s-box minHeight="300px" paddingBlockStart="base">
-            {console.log(analyticsData)}
-            <LineChart
-              data={[
-                {
-                  name: "Total Edits",
-                  data: prepareChartData(analyticsData?.last30daysdata),
-                },
-              ]}
-              showLegend={false}
-            />
-
-
+            {(() => {
+              const chartData = prepareChartData(analyticsData?.last30daysdata);
+              const maxVal = Math.max(0, ...chartData.map(d => d.value));
+              return (
+                <LineChart
+                  data={[
+                    {
+                      name: "Total Edits",
+                      data: chartData,
+                      showPoints: false,
+                    },
+                  ]}
+                  showLegend={false}
+                  yAxisOptions={{
+                    integersOnly: true,
+                  }}
+                />
+              );
+            })()}
           </s-box>
         </s-grid>
       </s-section>
 
 
+      {/* Feature Highlights Section */}
+      <s-grid gridTemplateColumns="1fr 1fr" gap="base" paddingBlockEnd="base">
+        <s-section>
+          <s-stack gap="loose">
+            <s-stack gap="tight">
+              <s-heading variant="headingMd">Master Order Management</s-heading>
+              <s-text color="subdued" variant="bodySm">Give your customers full control over their orders with advanced editing features.</s-text>
+            </s-stack>
 
-
-      {activities && activities.length > 0 ? (
-        <s-section padding="none">
-          <s-box padding="base">
-            <s-heading>Recent Activity</s-heading>
-          </s-box>
-          <s-table >
-            <s-table-header-row>
-              <s-table-header listSlot="primary">Order</s-table-header>
-              <s-table-header>Activity</s-table-header>
-            </s-table-header-row>
-            <s-table-body>
-              {activities.slice(0, 10).map((activity) => (
-                <s-table-row key={activity.id}>
-                  <s-table-cell>
-                    <s-link href={`shopify:admin/orders/${activity.orderId?.split("/").pop()}`}>
-                      {activity.orderName || activity.orderId?.split("/").pop()}
-                    </s-link>
-                  </s-table-cell>
-                  <s-table-cell>
-                    <s-stack direction="inline" gap="extraTight" alignItems="center">
-                      <s-badge tone="info">{activity.message}</s-badge>
-                    </s-stack>
-                  </s-table-cell>
-                </s-table-row>
+            <s-stack gap="base">
+              {[
+                "Effortless contact & shipping info updates",
+                "Smart product removals & quantity adjustments",
+                "Instant adding of new items to existing orders",
+                "Seamless automated refund processing"
+              ].map(point => (
+                <s-stack key={point} direction="inline" gap="extraTight" alignItems="center">
+                  <s-icon type="checkmark" tone="success" size="small" />
+                  <s-text variant="bodySm">{point}</s-text>
+                </s-stack>
               ))}
-            </s-table-body>
-          </s-table>
+            </s-stack>
+
+            <s-button variant="primary" href="/settings" fullWidth>
+              Configure Features
+            </s-button>
+          </s-stack>
         </s-section>
-      ) : (
-        <s-section accessibilityLabel="Empty state section">
-          <s-box padding="base">
-            <s-heading>Recent Activity</s-heading>
-          </s-box>
-          <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
-            <s-box maxInlineSize="200px" maxBlockSize="200px">
-              <s-image
-                aspectRatio="1/0.5"
-                src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
-                alt="Empty state graphic"
-              />
-            </s-box>
-            <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
-              <s-stack alignItems="center">
-                <s-heading>No activity yet</s-heading>
-                <s-paragraph>
-                  When orders are edited, they will appear here.
-                </s-paragraph>
-              </s-stack>
-            </s-grid>
-          </s-grid>
+
+        <s-section>
+          <s-stack gap="loose">
+            <s-stack gap="tight">
+              <s-heading variant="headingMd">Control Editing Windows</s-heading>
+              <s-text color="subdued" variant="bodySm">Set precise time limits and rules for when orders can be modified.</s-text>
+            </s-stack>
+
+            <s-stack gap="base">
+              {[
+                "Custom editing limits (30 mins to 24 hours)",
+                "Tag-based and customer-based restrictions",
+                "Automatic order status & tag synchronization",
+                "Real-time expiration tracking for customers"
+              ].map(point => (
+                <s-stack key={point} direction="inline" gap="extraTight" alignItems="center">
+                  <s-icon type="checkmark" tone="success" size="small" />
+                  <s-text variant="bodySm">{point}</s-text>
+                </s-stack>
+              ))}
+            </s-stack>
+
+            <s-button variant="secondary" href="/settings" fullWidth>
+              Manage Time Settings
+            </s-button>
+          </s-stack>
         </s-section>
-      )}
+      </s-grid>
 
       {/* Recommended Apps Section */}
       <s-section>

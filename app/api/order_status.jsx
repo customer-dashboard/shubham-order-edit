@@ -1,5 +1,6 @@
 import { authenticate, unauthenticated } from "../shopify.server";
 import { getOrderDetails, fetchProductVariants } from "../server/graphql";
+import { DEFAULT_APP_SETTINGS } from "../constants/defaultSettings";
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -8,7 +9,17 @@ export const loader = async ({ request }) => {
 
 export const action = async ({ request }) => {
   const { shop, cors, sessionToken } = await authenticate.public.customerAccount(request);
-  const shopDomain = shop || sessionToken?.dest;
+  
+  // Try to get shop domain from multiple sources
+  let shopDomain = shop || sessionToken?.dest;
+  
+  if (!shopDomain) {
+    const referer = request.headers.get("referer");
+    if (referer) {
+      const url = new URL(referer);
+      shopDomain = url.hostname;
+    }
+  }
 
   if (!shopDomain) {
     return cors(new Response(JSON.stringify({ error: "Invalid shop domain" }), { status: 401 }));
@@ -20,7 +31,15 @@ export const action = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { Target, id, countryCode } = body;
+    const { Target, id, countryCode, shop: bodyShop } = body;
+    
+    if (!shopDomain && bodyShop) {
+      shopDomain = bodyShop;
+    }
+
+    if (!shopDomain) {
+      return cors(new Response(JSON.stringify({ error: "Invalid shop domain" }), { status: 401 }));
+    }
 
     if (Target !== "GET_ORDER_DETAILS") {
       return cors(new Response(JSON.stringify({ error: "Invalid target" }), { status: 400 }));
@@ -76,7 +95,12 @@ export const action = async ({ request }) => {
     `);
     const shopSettingsJson = await shopResponse.json();
     const settingsValue = shopSettingsJson.data?.shop?.metafield?.value;
-    const settings = settingsValue ? JSON.parse(settingsValue) : null;
+    let settings = settingsValue ? { ...DEFAULT_APP_SETTINGS, ...JSON.parse(settingsValue) } : DEFAULT_APP_SETTINGS;
+    
+    // Fix for stores stuck with old buggy defaults
+    if (settings.time_limit?.status === "enable" && (Number(settings.time_limit.time) === 0 || !settings.time_limit.time)) {
+      settings.time_limit.status = "disable";
+    }
 
     return cors(new Response(JSON.stringify({
       status: 200,

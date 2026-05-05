@@ -53,6 +53,13 @@ export const action = async ({ request }) => {
     }
 
   } catch (error) {
+    const errorMsg = error.message || "";
+    if (errorMsg.includes("No outstanding balance exist")) {
+      return cors(new Response(JSON.stringify({ 
+        message: "Order is already fully paid. No invoice is needed for this order." 
+      })));
+    }
+
     console.error("Error in orderInvoice API:", error);
     return cors(new Response(JSON.stringify({
       message: error.message || "Internal Server Error"

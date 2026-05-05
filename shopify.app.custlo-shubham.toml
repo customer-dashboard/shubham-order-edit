@@ -4,28 +4,28 @@ client_id = "ee0d8eb337181cafaf7912854e760d1d"
 name = "Custlo shubham"
 application_url = "https://portrait-richard-parties-fits.trycloudflare.com"
 embedded = true
-handle = "discounts-pro-mt"
+handle = "discounts-pro-mt-1"
 
 [build]
 automatically_update_urls_on_dev = true
-
-[access.admin]
-embedded_app_direct_api_access = true
 
 [webhooks]
 api_version = "2026-07"
 
   [[webhooks.subscriptions]]
-  topics = [ "app/uninstalled" ]
-  uri = "/webhooks/app/uninstalled"
-
-  [[webhooks.subscriptions]]
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+[access.admin]
+embedded_app_direct_api_access = true
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,read_customers,read_discounts,read_locales,write_customers,read_themes,write_themes,customer_read_orders,read_customers,write_order_edits,write_orders"
+scopes = "customer_read_orders,read_all_orders,read_customers,read_discounts,read_locales,read_themes,write_customers,write_order_edits,write_orders,write_products,write_themes"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]

@@ -93,10 +93,14 @@ export async function action({ request }) {
 
             if (range) {
               const [startStr, endStr] = range.split("--");
-              if (startStr) start = new Date(startStr);
+              if (startStr) {
+                // Parse as YYYY-MM-DD and set to 00:00:00 local time
+                const [y, m, d] = startStr.split('-').map(Number);
+                start = new Date(y, m - 1, d, 0, 0, 0, 0);
+              }
               if (endStr) {
-                end = new Date(endStr);
-                end.setHours(23, 59, 59, 999);
+                const [y, m, d] = endStr.split('-').map(Number);
+                end = new Date(y, m - 1, d, 23, 59, 59, 999);
               }
             }
 
@@ -144,11 +148,32 @@ export async function action({ request }) {
                   total_shipping_address_editing: s["ADDRESS_UPDATE"] || 0,
                   total_discount_code: s["DISCOUNT_APPLIED"] || 0,
                   total_phone_number_editing: s["PHONE_UPDATE"] || 0,
-                  total_invoice_download: s["INVOICE_GENERATED"] || 0,
+                  total_invoice_download: (s["INVOICE_GENERATED"] || 0) + (s["INVOICE_SENT"] || 0),
                   total_delivery_instructions: s["DELIVERY_INST_UPDATE"] || 0,
                   total_order_line_items_editing: (s["ITEM_REMOVED"] || 0) + (s["ITEM_REPLACED"] || 0) + (s["QTY_UPDATE"] || 0) + (s["ORDER_UPDATE"] || 0),
                   total_adding_more_products: s["PRODUCT_ADDED"] || 0
                 }
+              },
+              status: 200
+            };
+
+        case "GET_RECENT_ACTIVITY":
+            const recentActivities = await activitiesCol
+              .find({ shop: session.shop })
+              .sort({ createdAt: -1 })
+              .limit(10)
+              .toArray();
+            
+            return {
+              data: {
+                activities: recentActivities.map(a => ({
+                  id: a._id,
+                  orderId: a.orderId,
+                  orderName: a.orderName,
+                  message: a.message,
+                  type: a.type,
+                  createdAt: a.createdAt
+                }))
               },
               status: 200
             };

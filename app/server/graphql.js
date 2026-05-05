@@ -569,39 +569,6 @@ export async function searchProducts(admin, query, countryCode) {
   }
 }
 
-export async function fetchProductVariants(admin, productId, countryCode) {
-  try {
-    const response = await admin.graphql(
-      `#graphql
-      query getVariants($id: ID!, $country: CountryCode) {
-        product(id: $id) {
-          variants(first: 100) {
-            edges {
-              node {
-                id
-                title
-                sku
-                price
-                contextualPricing(context: { country: $country }) {
-                  price {
-                    amount
-                    currencyCode
-                  }
-                }
-              }
-            }
-          }
-        }
-      }`,
-      { variables: { id: productId, country: countryCode } }
-    );
-    const json = await response.json();
-    return json.data?.product?.variants?.edges.map(e => e.node) || [];
-  } catch (error) {
-    console.error("Error in fetchProductVariants:", error);
-    return [];
-  }
-}
 
 export async function orderEditBegin(admin, orderId) {
   try {
@@ -906,7 +873,7 @@ export async function syncAnalytics(admin, shopDomain) {
         total_shipping_address_editing: s["ADDRESS_UPDATE"] || 0,
         total_discount_code: s["DISCOUNT_APPLIED"] || 0,
         total_phone_number_editing: s["PHONE_UPDATE"] || 0,
-        total_invoice_download: s["INVOICE_GENERATED"] || 0,
+        total_invoice_download: (s["INVOICE_GENERATED"] || 0) + (s["INVOICE_SENT"] || 0),
         total_delivery_instructions: s["DELIVERY_INST_UPDATE"] || 0,
         total_order_line_items_editing: (s["ITEM_REMOVED"] || 0) + (s["ITEM_REPLACED"] || 0) + (s["QTY_UPDATE"] || 0) + (s["ORDER_UPDATE"] || 0),
         total_adding_more_products: s["PRODUCT_ADDED"] || 0

@@ -6,6 +6,7 @@ import { DateRangePickerWeb } from "./components/DateRangePickerWeb";
 export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [activities, setActivities] = useState([]);
 
   const [dateRange, setDateRange] = useState(() => {
     const end = new Date();
@@ -21,8 +22,13 @@ export default function AnalyticsPage() {
     shopify.loading(true)
     setLoading(true);
     try {
-      const format = (d) => d.toISOString().split('T')[0];
-      const rangeStr = `${format(range.start)}--${format(range.end)}`;
+      const toLocalYMD = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      };
+      const rangeStr = `${toLocalYMD(range.start)}--${toLocalYMD(range.end)}`;
 
       // 1. Fetch Detailed Analytics from Backend
       const response = await fetch('/app/fetch-data', {
@@ -64,9 +70,52 @@ export default function AnalyticsPage() {
     }
   };
 
+  const loadRecentActivity = async () => {
+    try {
+      // 1. Fetch from GraphQL Metafield (Fallback/Sync)
+      const gqlResponse = await fetch('shopify:admin/api/graphql.json', {
+        method: 'POST',
+        body: JSON.stringify({
+          query: `query {
+            shop {
+              metafield(namespace: "order_editing", key: "analytics_30d") {
+                value
+              }
+            }
+          }`
+        })
+      }).then(r => r.json());
+
+      const metaValue = gqlResponse.data?.shop?.metafield?.value;
+      if (metaValue) {
+        try {
+          const parsed = JSON.parse(metaValue);
+          if (parsed.last10activity) setActivities(parsed.last10activity);
+        } catch (e) { console.error("Metafield parse error:", e); }
+      }
+
+      // 2. Fetch from Backend (Primary)
+      const response = await fetch('/app/fetch-data', {
+        method: 'POST',
+        body: (() => {
+          const fd = new FormData();
+          fd.append("_action", "GET_RECENT_ACTIVITY");
+          return fd;
+        })()
+      });
+      const result = await response.json();
+      if (result.data?.activities && result.data.activities.length > 0) {
+        setActivities(result.data.activities);
+      }
+    } catch (error) {
+      console.error("Error loading recent activity:", error);
+    }
+  };
+
 
   useEffect(() => {
     loadAnalytics(dateRange);
+    loadRecentActivity(); // Independent from dateRange
   }, [dateRange]);
 
   const prepareChartData = (backendData, range) => {
@@ -75,14 +124,20 @@ export default function AnalyticsPage() {
     const filledData = [];
     const statsMap = Object.fromEntries(backendData.map(d => [d.key, d.value]));
 
+    // Helper to get YYYY-MM-DD in local time
+    const toLocalYMD = (date) => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
     const curr = new Date(range.start);
     const end = new Date(range.end);
-
-    // Normalize to date part for comparison
-    const endStr = end.toISOString().split('T')[0];
+    const endStr = toLocalYMD(end);
 
     while (true) {
-      const dayStr = curr.toISOString().split('T')[0];
+      const dayStr = toLocalYMD(curr);
       filledData.push({
         key: dayStr,
         value: statsMap[dayStr] || 0
@@ -90,7 +145,7 @@ export default function AnalyticsPage() {
 
       if (dayStr === endStr) break;
       curr.setDate(curr.getDate() + 1);
-      if (curr > new Date(end.getTime() + 86400000)) break; // Safety break
+      if (curr > new Date(end.getTime() + 86400000)) break;
     }
 
     return filledData;
@@ -128,14 +183,25 @@ export default function AnalyticsPage() {
             </s-box>
           ) : (
             <s-box minHeight="400px" paddingBlockStart="base">
-              <LineChart
-                data={[
-                  {
-                    name: "Total Edits",
-                    data: prepareChartData(data?.chartData, dateRange),
-                  }
-                ]}
-              />
+              {(() => {
+                const chartData = prepareChartData(data?.chartData, dateRange);
+                const maxVal = Math.max(0, ...chartData.map(d => d.value));
+                return (
+                  <LineChart
+                    data={[
+                      {
+                        name: "Total Edits",
+                        data: chartData,
+                        showPoints: false,
+                      },
+                    ]}
+                    showLegend={false}
+                    yAxisOptions={{
+                      integersOnly: true,
+                    }}
+                  />
+                );
+              })()}
             </s-box>
           )}
         </s-box>
@@ -204,8 +270,62 @@ export default function AnalyticsPage() {
           </s-grid>
         </s-box>
       </s-section>
-      <s-stack alignItems="center">
-        <s-text>Learn more about <s-link href="">creating puzzles</s-link>.</s-text>
+
+      {activities && activities.length > 0 ? (
+        <s-section padding="none">
+          <s-box padding="base">
+            <s-heading>Recent Activity</s-heading>
+          </s-box>
+          <s-table >
+            <s-table-header-row>
+              <s-table-header listSlot="primary">Order</s-table-header>
+              <s-table-header>Activity</s-table-header>
+            </s-table-header-row>
+            <s-table-body>
+              {activities.slice(0, 10).map((activity) => (
+                <s-table-row key={activity.id}>
+                  <s-table-cell>
+                    <s-link href={`shopify:admin/orders/${activity.orderId?.split("/").pop()}`}>
+                      {activity.orderName || activity.orderId?.split("/").pop()}
+                    </s-link>
+                  </s-table-cell>
+                  <s-table-cell>
+                    <s-stack direction="inline" gap="extraTight" alignItems="center">
+                      <s-badge tone="info">{activity.message}</s-badge>
+                    </s-stack>
+                  </s-table-cell>
+                </s-table-row>
+              ))}
+            </s-table-body>
+          </s-table>
+        </s-section>
+      ) : (
+        <s-section accessibilityLabel="Empty state section">
+          <s-box padding="base">
+            <s-heading>Recent Activity</s-heading>
+          </s-box>
+          <s-grid gap="base" justifyItems="center" paddingBlock="large-400">
+            <s-box maxInlineSize="200px" maxBlockSize="200px">
+              <s-image
+                aspectRatio="1/0.5"
+                src="https://cdn.shopify.com/static/images/polaris/patterns/callout.png"
+                alt="Empty state graphic"
+              />
+            </s-box>
+            <s-grid justifyItems="center" maxInlineSize="450px" gap="base">
+              <s-stack alignItems="center">
+                <s-heading>No activity yet</s-heading>
+                <s-paragraph>
+                  When orders are edited, they will appear here.
+                </s-paragraph>
+              </s-stack>
+            </s-grid>
+          </s-grid>
+        </s-section>
+      )}
+
+      <s-stack alignItems="center" paddingBlock="large">
+        <s-text>Learn more about <s-link href="">Order Editing</s-link>.</s-text>
       </s-stack>
     </s-page>
   );

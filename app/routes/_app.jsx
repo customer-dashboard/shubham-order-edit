@@ -1,4 +1,4 @@
-import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { Outlet, useLoaderData, useRouteError, useSearchParams } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
@@ -20,6 +20,9 @@ export default function App() {
   const [defSetting, setDefSetting] = useState([]);
   const [billingNew, setBillingNew] = useState([]);
   const [storeLanguages, setStorelanguages] = useState([]);
+  const [searchParams] = useSearchParams();
+
+  const isReset = searchParams.get("test") === "onobarding_reset";
 
   useEffect(() => {
     async function initApp() {
@@ -90,14 +93,19 @@ export default function App() {
     );
   }
 
+  // Hide nav if onboarding is not completed or if we are in reset mode for testing
+  const showNav = config?.onboarding?.completed && !isReset;
+
   return (
     <ShopifyAppProvider embedded apiKey={apiKey}>
       <PolarisProvider i18n={translations}>
-        <s-app-nav>
-          <s-link href="/" rel="home">Home</s-link>
-          <s-link href="/analytics">Analytics</s-link>
-          <s-link href="/settings">Settings</s-link>
-        </s-app-nav>
+        {showNav && (
+          <s-app-nav>
+            <s-link href="/" rel="home">Home</s-link>
+            <s-link href="/analytics">Analytics</s-link>
+            <s-link href="/settings">Settings</s-link>
+          </s-app-nav>
+        )}
 
 
         <Outlet
