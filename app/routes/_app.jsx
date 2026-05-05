@@ -1,14 +1,25 @@
-import { Outlet, useLoaderData, useRouteError, useSearchParams } from "react-router";
+import { Outlet, useLoaderData, useRouteError, useSearchParams, redirect } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
+import { confirmBillingPlan, initializeTrialManagement } from "../lib/billing.server";
 import { AppProvider as PolarisProvider } from "@shopify/polaris";
 import translations from "@shopify/polaris/locales/en.json";
 
 
 export const loader = async ({ request }) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  await initializeTrialManagement(session.shop);
+  const url = new URL(request.url);
+  const chargeId = url.searchParams.get("charge_id");
+
+  if (chargeId) {
+    await confirmBillingPlan(session, chargeId);
+    url.searchParams.delete("charge_id");
+    return redirect(url.toString());
+  }
+
   return {
     apiKey: process.env.SHOPIFY_API_KEY || "",
   };
@@ -104,6 +115,7 @@ export default function App() {
             <s-link href="/" rel="home">Home</s-link>
             <s-link href="/analytics">Analytics</s-link>
             <s-link href="/settings">Settings</s-link>
+            <s-link href="/plans">Plans</s-link>
           </s-app-nav>
         )}
 
