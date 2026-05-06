@@ -61,7 +61,7 @@ export default function OnboardingPage({ isReset }) {
     setHasInteracted(true);
     const currentStatus = config?.[key]?.status || "disable";
     const nextStatus = currentStatus === "enable" ? "disable" : "enable";
-    
+
     const updated = {
       ...config,
       [key]: {
@@ -172,7 +172,7 @@ export default function OnboardingPage({ isReset }) {
                 <s-grid gridTemplateColumns="2fr 1fr">
                   <s-stack gap="base">
                     <s-stack gap="small">
-                      <s-heading lavel="1">Welcome to Order Edit Pro!</s-heading>
+                      <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Welcome to Order Edit Pro!</h1>
                       <s-paragraph color="subdued">
                         Empower your customers to manage their own orders, reducing support tickets and increasing satisfaction.
                       </s-paragraph>
@@ -205,20 +205,19 @@ export default function OnboardingPage({ isReset }) {
                       </s-box>
                     </s-grid>
                   </s-stack>
-                  <s-image src="https://cdn.shopify.com/s/files/1/0649/8743/1125/files/image_8.png?v=1776924944" alt="" />
+                  <s-image src="https://mandasa1.b-cdn.net/custlo_order_edit__720.png" alt="" />
                 </s-grid>
               )}
 
               {/* STEP 1: Quick Settings */}
               {currentStep === 1 && (
                 <s-stack gap="base">
-                  <s-stack gap="extraTight">
-                    <s-heading variant="headingLg">Select Features to Enable</s-heading>
+                  <s-stack>
+                    <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Quick Settings</h1>
                     <s-paragraph color="subdued">
                       Choose which parts of the order customers should be allowed to edit. You can change these anytime later.
                     </s-paragraph>
                   </s-stack>
-
                   <s-box border="base" borderRadius="base">
                     <s-stack gap="none">
                       {[
@@ -249,8 +248,8 @@ export default function OnboardingPage({ isReset }) {
               {/* STEP 2: Activate Extension */}
               {currentStep === 2 && (
                 <s-stack gap="base">
-                  <s-stack gap="extraTight">
-                    <s-heading variant="headingLg">Activate the Edit Block</s-heading>
+                  <s-stack>
+                    <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Activate the Edit Block</h1>
                     <s-paragraph color="subdued">
                       Now, you need to add the Order Edit block to your Order Status page in the Shopify Editor.
                     </s-paragraph>
@@ -305,7 +304,7 @@ export default function OnboardingPage({ isReset }) {
                       objectFit="cover"
                     />
                   </s-box>
-                  <s-heading variant="headingLg">Ready to Go!</s-heading>
+                  <h1 tone='bold' style={{ fontSize: "1.2rem", fontWeight: "600" }}>Ready to Go!</h1>
                   <s-text color="subdued">Your order editing experience is configured and ready.</s-text>
                   <s-button variant="primary" onClick={finish} fullWidth>
                     Go to Dashboard →

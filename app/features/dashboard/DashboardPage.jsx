@@ -136,35 +136,58 @@ export default function DashboardPage() {
 
   return (
     <s-page heading={`Hello, ${shopName}! 👋`}>
-      {isOrderEditActive ? (
-        <s-banner
-          heading="Order edits are active"
-          tone="success"
-          dismissible
-        >
-          Your app is connected and order edits are enabled on the order status page.
-          <s-paragraph color="subdued">
-            Customers can now fix mistakes after checkout without contacting support.
-          </s-paragraph>
-        </s-banner>
-      ) : (
-        <s-banner heading="Enable order edits on your store" tone="warning">
-          <s-paragraph>
-            Turn on order editing so customers can update items after checkout instead of
-            cancelling and re‑ordering.
-          </s-paragraph>
-          <s-paragraph color="subdued">
-            Setup usually takes less than a mi  nute and only needs to be done once.
-          </s-paragraph>
-
-          <s-button
-            slot="secondary-actions"
-            variant="secondary"
-            href="shopify:admin/settings/checkout/editor?page=order-status&context=apps&app=ee0d8eb337181cafaf7912854e760d1d"
+      {config?.limit_reached && (
+        <s-box paddingBlockEnd="base">
+          <s-banner
+            heading="Monthly Edit Limit Reached"
+            tone="critical"
           >
-            Open checkout settings
-          </s-button>
-        </s-banner>
+            You have reached your monthly order edit limit. Extensions are currently disabled for customers.
+            <s-button slot="primary-action" variant="primary" href="/plans">
+              Upgrade Plan
+            </s-button>
+          </s-banner>
+        </s-box>
+      )}
+
+      {isOrderEditActive ? (
+        <s-section>
+          <s-grid
+            gridTemplateColumns="1fr auto"
+            alignItems="center"
+            gap="base"
+          >
+            <s-box>
+              <s-heading>Order Editing is Live! 🎉</s-heading>
+              <s-paragraph color="subdued">
+                Your customers can now fix their own order mistakes. You can manage features and rules in the settings.
+              </s-paragraph>
+            </s-box>
+            <s-badge tone="success">Active</s-badge>
+          </s-grid>
+        </s-section>
+      ) : (
+        <s-section>
+          <s-grid
+            gridTemplateColumns="1fr auto"
+            alignItems="center"
+            gap="base"
+          >
+            <s-box>
+              <s-heading>Unlock Self-Service Order Editing</s-heading>
+              <s-paragraph color="subdued">
+                Give your customers the power to fix mistakes instantly without contacting support. Setup takes less than 2 minutes.
+              </s-paragraph>
+            </s-box>
+            {console.log(shopify)}
+            <s-button
+              variant="primary"
+              href={`shopify:admin/settings/checkout/editor?page=order-status&context=apps&app=${shopify.config.apiKey}`}
+            >
+              Add Block
+            </s-button>
+          </s-grid>
+        </s-section>
       )}
 
       {/* Summary Metrics Section */}
@@ -172,18 +195,15 @@ export default function DashboardPage() {
         <s-section heading="Total Orders">
           <s-heading variant="headingLg">{totalOrders}</s-heading>
         </s-section>
+
         <s-section heading="Total Edited Orders">
           <s-heading variant="headingLg">{analyticsData?.totalorderedit || metrics?.totalEdits || 0}</s-heading>
         </s-section>
-
-
-
 
         <s-section heading="Active Features">
           <s-heading variant="headingLg">
             {[
               'shipping_address_editing',
-
               'phone_number_editing',
               'invoice_download',
               'delivery_instructions',
@@ -192,8 +212,6 @@ export default function DashboardPage() {
             ].filter(key => config?.[key]?.status === 'enable').length} / 6
           </s-heading>
         </s-section>
-
-
       </s-grid>
 
 
@@ -202,7 +220,7 @@ export default function DashboardPage() {
         <s-grid gap="base">
           <s-grid gridTemplateColumns="1fr auto" alignItems="center">
             <s-box>
-              <s-heading variant="headingLg">Overview</s-heading>
+              <s-heading variant="headingLg">Performance Overview</s-heading>
               <s-text color="subdued">Last 30 days</s-text>
             </s-box>
             <s-link href="/analytics">Detailed analytics →</s-link>
@@ -235,60 +253,52 @@ export default function DashboardPage() {
 
       {/* Feature Highlights Section */}
       <s-grid gridTemplateColumns="1fr 1fr" gap="base" paddingBlockEnd="base">
-        <s-section>
+        <s-section heading="Empower Your Customers">
           <s-stack gap="small">
-            <s-stack gap="tight">
-              <s-heading variant="headingMd">Master Your Order Experience</s-heading>
-              <s-text color="subdued" variant="bodySm">
-                Give customers real-time control over their orders
-              </s-text>
-            </s-stack>
+            <s-text color="subdued">
+              Reduce support volume by allowing customers to fix shipping details, swap items, or add products themselves.
+            </s-text>
 
             <s-stack gap="base">
               {[
-                "Quickly update contact details & shipping information",
-                "Easily remove products or adjust quantities anytime",
-                "Add new items to existing orders in seconds",
-                "Automatic refunds handled smoothly in the background"
-              ].map(point => (
-                <s-stack key={point} direction="inline" gap="small" alignItems="center">
+                "Update shipping address & phone",
+                "Remove items or adjust quantities",
+                "Add new products to existing orders"
+              ].map(text => (
+                <s-stack key={text} direction="inline" gap="small" alignItems="center">
                   <s-icon type="check" tone="success" size="small" />
-                  <s-text variant="bodySm">{point}</s-text>
+                  <s-text variant="bodySm">{text}</s-text>
                 </s-stack>
               ))}
             </s-stack>
 
             <s-button variant="primary" href="/settings" fullWidth>
-              Customize Order Controls
+              Enable Edit Features
             </s-button>
           </s-stack>
         </s-section>
 
-        <s-section>
+        <s-section heading="Automate Your Workflow">
           <s-stack gap="small">
-            <s-stack gap="tight">
-              <s-heading variant="headingMd">Set Smart Editing Rules</s-heading>
-              <s-text color="subdued" variant="bodySm">
-                Stay in control by deciding exactly who can edit orders and when.
-              </s-text>
-            </s-stack>
+            <s-text color="subdued">
+              Define smart time windows and restrictions to ensure order editing fits your fulfillment process perfectly.
+            </s-text>
 
             <s-stack gap="base">
               {[
-                "Flexible editing windows (from 30 minutes up to 24 hours)",
-                "Restrict access based on customer tags",
-                "Control permissions using order tags",
-                "Enable or block editing for specific product tags"
-              ].map(point => (
-                <s-stack key={point} direction="inline" alignItems="center" gap="small">
+                "Set custom editing time windows",
+                "Restrict by customer or order tags",
+                "Provide instant invoice downloads"
+              ].map(text => (
+                <s-stack key={text} direction="inline" gap="small" alignItems="center">
                   <s-icon type="check" tone="success" size="small" />
-                  <s-text variant="bodySm">{point}</s-text>
+                  <s-text variant="bodySm">{text}</s-text>
                 </s-stack>
               ))}
             </s-stack>
 
             <s-button variant="secondary" href="/settings" fullWidth>
-              Configure Rules
+              Setup Global Rules
             </s-button>
           </s-stack>
         </s-section>
@@ -296,12 +306,6 @@ export default function DashboardPage() {
 
 
       <s-section heading="Recommended apps">
-        <s-grid
-          gridTemplateColumns="1fr auto"
-          alignItems="center"
-          paddingBlockEnd="small-400"
-        >
-        </s-grid>
         <s-grid
           gridTemplateColumns="repeat(auto-fit, minmax(240px, 1fr))"
           gap="base"
@@ -312,8 +316,6 @@ export default function DashboardPage() {
             border="base"
             borderRadius="base"
             padding="base"
-            inlineSize="100%"
-            accessibilityLabel=""
           >
             <s-grid
               gridTemplateColumns="auto 1fr auto"
@@ -323,32 +325,29 @@ export default function DashboardPage() {
               <s-thumbnail
                 size="small"
                 src="https://cdn.shopify.com/app-store/listing_images/ee5b2c78feec2e8755c58cc3056c58f6/icon/CM29wYjDr40DEAE=.png"
-                alt="Custlo ‑ Customer accounts app icon"
+                alt="Custlo icon"
               />
               <s-box>
                 <s-heading>Custlo ‑ Customer accounts app</s-heading>
-                <s-paragraph> Free trial available</s-paragraph>
                 <s-paragraph>
-                  Turn boring customer account pages into Loyalty Suite: smart personalized AI customer account pages..
+                  Turn boring customer account pages into smart personalized AI portals.
                 </s-paragraph>
               </s-box>
               <s-stack justifyContent="start">
                 <s-button
                   href="https://apps.shopify.com/customer-dashboard-pro"
                   icon="download"
-                  accessibilityLabel="Custlo ‑ Customer accounts app"
                 />
               </s-stack>
             </s-grid>
           </s-clickable>
+
           {/* Featured app 2 */}
           <s-clickable
             href="https://apps.shopify.com/checkout-extensions-pro"
             border="base"
             borderRadius="base"
             padding="base"
-            inlineSize="100%"
-            accessibilityLabel="Checkout Extensions Pro ‑ MT"
           >
             <s-grid
               gridTemplateColumns="auto 1fr auto"
@@ -358,20 +357,18 @@ export default function DashboardPage() {
               <s-thumbnail
                 size="small"
                 src="https://cdn.shopify.com/app-store/listing_images/f0744aa7ec85f7d412692b264a7613a6/icon/CLS1jNz6yo0DEAE=.png"
-                alt="Checkout Extensions Pro ‑ MT icon"
+                alt="Checkout Extensions icon"
               />
               <s-box>
                 <s-heading>Checkout Extensions Pro ‑ MT</s-heading>
-                <s-paragraph>Free trial available</s-paragraph>
                 <s-paragraph>
-                  Powerful App for Checkout Custom Fields, Rules & Customization, Upsells, Conversion, Branding etc.
+                  Powerful app for checkout custom fields, rules, and upsells.
                 </s-paragraph>
               </s-box>
               <s-stack justifyContent="start">
                 <s-button
                   href="https://apps.shopify.com/checkout-extensions-pro"
                   icon="download"
-                  accessibilityLabel="Checkout Extensions Pro ‑ MT"
                 />
               </s-stack>
             </s-grid>

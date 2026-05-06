@@ -9,7 +9,7 @@ export default () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://continues-collaborative-bring-sells.trycloudflare.com";
+const BASEURL = "https://nursery-superb-doctrine-taken.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
@@ -104,7 +104,7 @@ function OrderStatusManager() {
         if (appSettings.status === "disable") return { editable: false, reason: "app_disabled" };
 
         // --- CHECK MONTHLY LIMIT ---
-        if (appSettings.limit_reached === true) {
+        if (appSettings.limit_reached === true || String(appSettings.limit_reached) === "true") {
             return { editable: false, reason: "limit_reached" };
         }
 

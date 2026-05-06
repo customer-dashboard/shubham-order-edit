@@ -3,14 +3,15 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
-import { confirmBillingPlan, initializeTrialManagement } from "../lib/billing.server";
+import { confirmBillingPlan, initializeTrialManagement, syncUsageStatus } from "../lib/billing.server";
 import { AppProvider as PolarisProvider } from "@shopify/polaris";
 import translations from "@shopify/polaris/locales/en.json";
 
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   await initializeTrialManagement(session.shop);
+  await syncUsageStatus(session, admin);
   const url = new URL(request.url);
   const chargeId = url.searchParams.get("charge_id");
 
@@ -48,6 +49,9 @@ export default function App() {
                   metafield(namespace: "order_editing", key: "app_settings") {
                     value
                   }
+                  usageLimit: metafield(namespace: "order_edit_pro", key: "limit_reached") {
+                    value
+                  }
                 }
               }
             `,
@@ -56,13 +60,15 @@ export default function App() {
 
         const { data } = await response.json();
         const value = data?.shop?.metafield?.value;
+        const limitReached = data?.shop?.usageLimit?.value === "true";
         
         if (value) {
-          setConfig(JSON.parse(value));
+          const parsed = JSON.parse(value);
+          setConfig({ ...parsed, limit_reached: limitReached });
         } else {
           // Default config if metafield missing
           const { DEFAULT_APP_SETTINGS } = await import("../constants/defaultSettings");
-          setConfig(DEFAULT_APP_SETTINGS);
+          setConfig({ ...DEFAULT_APP_SETTINGS, limit_reached: limitReached });
         }
 
       } catch (error) {

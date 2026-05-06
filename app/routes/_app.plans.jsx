@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useOutletContext } from "react-router";
 import Footer from "../components/footer";
 
 export const PricingCard = ({
@@ -129,6 +130,7 @@ const PLANS = [
 ];
 
 export default function PlansPage() {
+    const { config } = useOutletContext();
     const [planloading, setplanloading] = useState(false);
     const [planinfo, setplaninfo] = useState({});
     const [loading, setLoading] = useState("");
@@ -208,6 +210,16 @@ export default function PlansPage() {
 
     return (
         <s-page heading="Plans">
+            {config?.limit_reached && (
+                <s-box paddingBlockEnd="base">
+                    <s-banner
+                        heading="Monthly Edit Limit Reached"
+                        tone="critical"
+                    >
+                        You have reached your monthly order edit limit. Please upgrade to a higher plan to re-enable order editing for your customers.
+                    </s-banner>
+                </s-box>
+            )}
             <s-grid gap="base" gridTemplateColumns="1fr 1fr 1fr">
                 {PLANS.map((plan) => (
                     <PricingCard

@@ -379,7 +379,9 @@ export async function syncUsageStatus(session, admin) {
 
     if (!billingPlan) return;
 
-    const limit = billingPlan.edit_limit || -1;
+    const planName = billingPlan.name?.toLowerCase();
+    const limit = billingConfig[planName]?.edit_limit ?? billingPlan.edit_limit ?? -1;
+    
     if (limit === -1) {
       // Unlimited
       await updateUsageMetafield(admin, session, false);
