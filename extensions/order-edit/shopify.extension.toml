@@ -18,6 +18,7 @@ uid = "90b65574-81fb-fc59-bbe8-2134cea9c80971559da8"
 [[extensions.targeting]]
 module = "./src/OrderStatusBlock.jsx"
 target = "customer-account.order-status.block.render"
+default_placement = "ORDER_STATUS1"
 
 [extensions.capabilities]
 # Gives your extension access to directly query Shopify’s storefront API.

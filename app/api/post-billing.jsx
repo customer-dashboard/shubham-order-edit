@@ -48,7 +48,7 @@ export async function action({ request }) {
   const isDevelopment = storePlanResult.data?.shop?.plan?.partnerDevelopment || false;
 
   // Calculate trial days using trial_management
-  const trialDays = await calculateTrialDays(session.shop, 14);
+  const trialDays = await calculateTrialDays(session.shop, planObject.trialDays || 14);
   const baseUrl = `https://admin.shopify.com/store/${session.shop.split(".myshopify.com")[0]}/apps/${process.env.SHOPIFY_API_KEY}`;
   let finalReturnPath = returnPath;
 

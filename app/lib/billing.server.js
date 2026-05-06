@@ -126,6 +126,9 @@ export async function cancelBillingPlan(shop) {
       { $set: { status: "cancelled", last_cancelled_at: new Date().toISOString() } }
     );
     console.log(`[MongoDB] Set status to cancelled for ${shop}`);
+    
+    // Also stop trial tracking if it was active
+    await stopTrialTracking(shop);
   } catch (error) {
     console.error(`Error cancelling plan in MongoDB:`, error);
   }
@@ -205,7 +208,7 @@ export async function confirmBillingPlan(session, chargeId) {
       variables: {
         metafields: [{
           key: "selected_plan",
-          namespace: "order_edit_pro",
+          namespace: "order_editing",
           ownerId: shopID,
           type: "json",
           value: JSON.stringify(updatedPlan)
@@ -231,7 +234,7 @@ export async function clearBillingMetafield(session, shopID) {
     variables: {
       metafields: [{
         key: "selected_plan",
-        namespace: "order_edit_pro",
+        namespace: "order_editing",
         ownerId: shopID,
         type: "json",
         value: JSON.stringify({})
@@ -256,7 +259,8 @@ export async function initializeTrialManagement(shop) {
         days_used: 0,
         first_install_at: now,
         last_install_at: now,
-        status: "installed"
+        status: "installed",
+        trial_started: false // Flag to track if they ever started a plan
       }, "trial_management");
     } else {
       await MongoDB_2({
@@ -304,13 +308,15 @@ export async function startTrialTracking(shop) {
         last_started_at: now.toISOString(),
         first_install_at: now.toISOString(),
         last_install_at: now.toISOString(),
-        status: "active"
+        status: "active",
+        trial_started: true
       }, "trial_management");
     } else {
       await MongoDB_2({
         ...trialData,
         last_started_at: now.toISOString(),
-        status: "active"
+        status: "active",
+        trial_started: true
       }, "trial_management");
     }
     console.log(`[Trial] Started tracking for ${shop}`);
@@ -411,7 +417,7 @@ async function updateUsageMetafield(admin, session, limitReached) {
     variables: {
       metafields: [{
         key: "limit_reached",
-        namespace: "order_edit_pro",
+        namespace: "order_editing",
         ownerId: shopID,
         type: "boolean",
         value: limitReached ? "true" : "false"

@@ -71,7 +71,7 @@ export async function getBillingInfo(admin) {
     const response = await admin.graphql(
       `#graphql
       query {
-        shop { id name myshopifyDomain plan { shopifyPlus } metafield(namespace: "checkoutextensionspro", key: "billing_plan") { value } }
+        shop { id name myshopifyDomain plan { shopifyPlus } metafield(namespace: "order_editing", key: "billing_plan") { value } }
         app { installation { activeSubscriptions { id name status test lineItems { plan { pricingDetails { ... on AppRecurringPricing { price { amount currencyCode } } } } } } } }
       }`
     );
@@ -94,7 +94,7 @@ export async function confirmSubscription(admin, shop) {
         mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
           metafieldsSet(metafields: $metafields) { userErrors { field message } }
         }`,
-        { variables: { metafields: [{ key: "billing_plan", namespace: "checkoutextensionspro", ownerId: shopId, type: "json", value: JSON.stringify(planInfo) }] } }
+        { variables: { metafields: [{ key: "billing_plan", namespace: "order_editing", ownerId: shopId, type: "json", value: JSON.stringify(planInfo) }] } }
       );
       return { success: true };
     }

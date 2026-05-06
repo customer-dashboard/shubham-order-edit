@@ -90,7 +90,7 @@ export const action = async ({ request }) => {
           metafield(namespace: "order_editing", key: "app_settings") {
             value
           }
-          usageLimit: metafield(namespace: "order_edit_pro", key: "limit_reached") {
+          usageLimit: metafield(namespace: "order_editing", key: "limit_reached") {
             value
           }
         }

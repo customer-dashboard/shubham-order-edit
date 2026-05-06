@@ -9,7 +9,7 @@ export default () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://nursery-superb-doctrine-taken.trycloudflare.com";
+const BASEURL = "https://balance-inns-supplier-pty.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
