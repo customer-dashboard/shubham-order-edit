@@ -27,7 +27,7 @@ export const DEFAULT_APP_SETTINGS = {
   time_limit: {
     status: "disable",
     time: 0,
-    period: "minutes"
+    period: "days"
   },
   order_tags: {
     status: "disable",

@@ -33,138 +33,77 @@ export async function action({ request }) {
 
   const planResult = await getDatabyQuery(session, data2);
 
-  if (name == "free") {
-    let getdata = await GetMongoDB(session.shop, "shop_info");
-    try {
-      getdata = getdata && getdata !== '""' ? JSON.parse(getdata) : null;
-    } catch (e) {
-      getdata = null;
-    }
-    // appPlanUpdateDataToBrevo removed as it is not implemented
-
-    if (planResult.data?.currentAppInstallation?.activeSubscriptions?.[0]) {
-      await getDatabyQuery(session, {
-        "query": `mutation CancelSubscription($id: ID!) {
-          appSubscriptionCancel(id: $id) {
-            userErrors {
-              field
-              message
-            }
-            appSubscription {
-              id
-              status
-            }
-          }
-        }`,
-        "variables": {
-          "id": planResult.data.currentAppInstallation.activeSubscriptions[0].id
-        },
-      });
-    }
-
-    // For free plan, we might not need a confirmation URL, so we return success or a specific flag
-    // Update storage for free plan
-    const planStorage = {
-      shop_name: session.shop,
-      ...planObject,
-      plan_date: CurrentDate(),
-      status: "active",
-      active: active,
-    };
-
-    const dta = await getDatabyQuery(session, {
-      query: `{
-        shop {
-          id
+  // Check if store is a development store
+  const storePlanQuery = {
+    query: `query CheckStorePlan {
+      shop {
+        plan {
+          partnerDevelopment
+          publicDisplayName 
         }
-      }`
-    });
-    const shopID = dta.data.shop.id;
+      }
+    }`
+  };
+  const storePlanResult = await getDatabyQuery(session, storePlanQuery);
+  const isDevelopment = storePlanResult.data?.shop?.plan?.partnerDevelopment || false;
 
-    await getDatabyQuery(session, {
-      "query": `mutation MetafieldsSet($metafields: [MetafieldsSetInput!]!) {
-        metafieldsSet(metafields: $metafields) {
-          userErrors {
-            field
-            message
+  // Calculate trial days using trial_management
+  const trialDays = await calculateTrialDays(session.shop, 14);
+  const baseUrl = `https://admin.shopify.com/store/${session.shop.split(".myshopify.com")[0]}/apps/${process.env.SHOPIFY_API_KEY}`;
+  let finalReturnPath = returnPath;
+
+  const createBilling = {
+    "query": `mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $trialDays: Int,$test:Boolean) {
+    appSubscriptionCreate(name: $name, returnUrl: $returnUrl, lineItems: $lineItems, trialDays: $trialDays,test:$test) {
+      userErrors {
+        field
+        message
+      }
+      appSubscription {
+        id
+      }
+      confirmationUrl
+    }
+  }`,
+    "variables": {
+      "name": name,
+      "returnUrl": `${baseUrl}${finalReturnPath}`,
+      "test": isDevelopment ? true : (IS_TEST_MODE || test),
+      "trialDays": trialDays,
+      "lineItems": [
+        {
+          "plan": {
+            "appRecurringPricingDetails": {
+              "price": {
+                "amount": Number(price),
+                "currencyCode": "USD"
+              },
+              "interval": active == "Yearly" ? 'ANNUAL' : 'EVERY_30_DAYS'
+            }
           }
         }
-      }`,
-      "variables": {
-        "metafields": [
-          {
-            "key": "selected_plan",
-            "namespace": "order_edit_pro",
-            "ownerId": shopID,
-            "type": "json",
-            "value": JSON.stringify(planStorage)
-          }
-        ]
-      },
-    });
+      ]
+    }
+  };
 
-    await MongoDB_2(planStorage, "billing_plan");
+  const createBillingResult = await getDatabyQuery(session, createBilling);
+  const dataResult = createBillingResult.data;
 
-    return { data: "success" };
+  if (dataResult?.appSubscriptionCreate?.userErrors?.length > 0) {
+    return { error: dataResult.appSubscriptionCreate.userErrors[0].message, status: 400 };
   }
 
-  if (name != "free") {
-    // Calculate trial days using trial_management
-    const trialDays = await calculateTrialDays(session.shop, 14);
-    const baseUrl = `https://admin.shopify.com/store/${session.shop.split(".myshopify.com")[0]}/apps/${process.env.SHOPIFY_API_KEY}`;
-    let finalReturnPath = returnPath;
+  const planStorage = {
+    shop_name: session.shop,
+    ...planObject,
+    plan_date: CurrentDate(),
+    status: "pending_approval",
+    active: active,
+    is_development_store: isDevelopment,
+    shop_plan: storePlanResult.data?.shop?.plan?.publicDisplayName
+  };
 
-    const createBilling = {
-      "query": `mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $trialDays: Int,$test:Boolean) {
-      appSubscriptionCreate(name: $name, returnUrl: $returnUrl, lineItems: $lineItems, trialDays: $trialDays,test:$test) {
-        userErrors {
-          field
-          message
-        }
-        appSubscription {
-          id
-        }
-        confirmationUrl
-      }
-    }`,
-      "variables": {
-        "name": name,
-        "returnUrl": `${baseUrl}${finalReturnPath}`,
-        "test": IS_TEST_MODE || test,
-        "trialDays": trialDays,
-        "lineItems": [
-          {
-            "plan": {
-              "appRecurringPricingDetails": {
-                "price": {
-                  "amount": Number(price),
-                  "currencyCode": "USD"
-                },
-                "interval": active == "Yearly" ? 'ANNUAL' : 'EVERY_30_DAYS'
-              }
-            }
-          }
-        ]
-      }
-    };
+  await MongoDB_2(planStorage, "billing_plan");
 
-    const createBillingResult = await getDatabyQuery(session, createBilling);
-    const dataResult = createBillingResult.data;
-
-    if (dataResult?.appSubscriptionCreate?.userErrors?.length > 0) {
-      return { error: dataResult.appSubscriptionCreate.userErrors[0].message, status: 400 };
-    }
-
-    const planStorage = {
-      shop_name: session.shop,
-      ...planObject,
-      plan_date: CurrentDate(),
-      status: "pending_approval",
-      active: active,
-    };
-
-    await MongoDB_2(planStorage, "billing_plan");
-
-    return { data: dataResult.appSubscriptionCreate.confirmationUrl };
-  }
+  return { data: dataResult.appSubscriptionCreate.confirmationUrl };
 }

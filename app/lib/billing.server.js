@@ -4,14 +4,7 @@ import { db, activities as activitiesCol } from "../mongodb.server";
 export const IS_TEST_MODE = true;
 
 export const billingConfig = {
-  "free": {
-    id: "plan_free_v1",
-    edit_limit: -1,
-    amount: 0,
-    currencyCode: "USD",
-    interval: BillingInterval.Every30Days,
-    trialDays: 0
-  },
+
   "starter": {
     id: "plan_starter_v1",
     edit_limit: 50,

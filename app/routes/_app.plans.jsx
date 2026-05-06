@@ -68,25 +68,7 @@ export const PricingCard = ({
 };
 
 const PLANS = [
-    {
-        id: "free",
-        plan_id: "plan_free_v1",
-        edit_limit: -1, // Unlimited
-        title: "Development",
-        description: "For testing on development stores",
-        monthlyPrice: "Free",
-        monthlyPriceValue: 0,
-        shopifyHandle: "free",
-        features: [
-            "Unlimited Order Edits",
-            "Shipping Address Editing",
-            "Phone Number Editing",
-            "Order Line Items Editing",
-            "Adding More Products",
-            "Discount Code & Invoices",
-            "All Restrictions unlocked"
-        ]
-    },
+
     {
         id: "starter",
         plan_id: "plan_starter_v1",

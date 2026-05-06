@@ -458,12 +458,12 @@ export default function SettingsPage() {
                       />
                       <s-select
                         label="Time Period"
-                        value={appSettings.time_limit?.period || "minutes"}
+                        value={appSettings.time_limit?.period || "days"}
                         onChange={(e) => handleTimeLimitChange("period", e.target.value)}
                       >
-                        <s-option value="minutes">Minutes</s-option>
-                        <s-option value="hours">Hours</s-option>
                         <s-option value="days">Days</s-option>
+                        <s-option value="hours">Hours</s-option>
+                        <s-option value="minutes">Minutes</s-option>
                       </s-select>
                     </s-grid>
                   )}
