@@ -689,72 +689,7 @@ export async function orderEditSetQuantity(admin, calculatedOrderId, lineItemId,
   }
 }
 
-export async function getCodeDiscountByCode(admin, code) {
-  try {
-    const response = await admin.graphql(
-      `#graphql
-      query getDiscount($code: String!) {
-        codeDiscountNodeByCode(code: $code) {
-          id
-          codeDiscount {
-            ... on DiscountCodeBasic {
-              title
-              customerGets {
-                value {
-                  ... on DiscountAmount {
-                    amount {
-                      amount
-                      currencyCode
-                    }
-                  }
-                  ... on DiscountPercentage {
-                    percentage
-                  }
-                }
-              }
-            }
-          }
-        }
-      }`,
-      { variables: { code } }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error("Error in getCodeDiscountByCode utility:", error);
-    return { error: error.message };
-  }
-}
 
-
-export async function orderEditAddLineItemDiscount(admin, calculatedOrderId, lineItemId, discount) {
-  try {
-    const response = await admin.graphql(
-      `#graphql
-      mutation orderEditAddLineItemDiscount($id: ID!, $lineItemId: ID!, $discount: OrderEditAppliedDiscountInput!) {
-        orderEditAddLineItemDiscount(id: $id, lineItemId: $lineItemId, discount: $discount) {
-          calculatedOrder {
-            id
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }`,
-      {
-        variables: {
-          id: calculatedOrderId,
-          lineItemId,
-          discount,
-        },
-      }
-    );
-    return await response.json();
-  } catch (error) {
-    console.error("Error in orderEditAddLineItemDiscount utility:", error);
-    return { error: error.message };
-  }
-}
 
 /**
  * Log activity to Metafield and MongoDB
@@ -871,7 +806,7 @@ export async function syncAnalytics(admin, shopDomain) {
       last30daysdata[key] = {
         totaledits: dayData.total || 0,
         total_shipping_address_editing: s["ADDRESS_UPDATE"] || 0,
-        total_discount_code: s["DISCOUNT_APPLIED"] || 0,
+
         total_phone_number_editing: s["PHONE_UPDATE"] || 0,
         total_invoice_download: (s["INVOICE_GENERATED"] || 0) + (s["INVOICE_SENT"] || 0),
         total_delivery_instructions: s["DELIVERY_INST_UPDATE"] || 0,

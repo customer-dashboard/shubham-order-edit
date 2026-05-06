@@ -311,26 +311,7 @@ export default function SettingsPage() {
                     />
                   </s-grid>
                 </s-clickable>
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("discount_code")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Enable Discount Code</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="shipping_address_editing"
-                      checked={appSettings?.discount_code?.status === "enable"}
-                    />
-                  </s-grid>
-                </s-clickable>
+
                 <s-divider />
                 <s-clickable
                   padding="small-100"

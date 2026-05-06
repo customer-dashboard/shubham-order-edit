@@ -183,13 +183,13 @@ export default function DashboardPage() {
           <s-heading variant="headingLg">
             {[
               'shipping_address_editing',
-              'discount_code',
+
               'phone_number_editing',
               'invoice_download',
               'delivery_instructions',
               'order_line_items_editing',
               'adding_more_products'
-            ].filter(key => config?.[key]?.status === 'enable').length} / 7
+            ].filter(key => config?.[key]?.status === 'enable').length} / 6
           </s-heading>
         </s-section>
 

@@ -146,7 +146,7 @@ export async function action({ request }) {
                 })),
                 counts: {
                   total_shipping_address_editing: s["ADDRESS_UPDATE"] || 0,
-                  total_discount_code: s["DISCOUNT_APPLIED"] || 0,
+
                   total_phone_number_editing: s["PHONE_UPDATE"] || 0,
                   total_invoice_download: (s["INVOICE_GENERATED"] || 0) + (s["INVOICE_SENT"] || 0),
                   total_delivery_instructions: s["DELIVERY_INST_UPDATE"] || 0,

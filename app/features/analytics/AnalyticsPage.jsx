@@ -226,15 +226,7 @@ export default function AnalyticsPage() {
           <s-box paddingInline="small-100">
             <s-divider />
           </s-box>
-          <s-grid gridTemplateColumns="1fr auto" alignItems="center" padding="small-100" gap="base">
-            <s-box>
-              <s-heading>Discount Code</s-heading>
-            </s-box>
-            <s-heading variant="headingLg">{data?.counts?.total_discount_code || 0}</s-heading>
-          </s-grid>
-          <s-box paddingInline="small-100">
-            <s-divider />
-          </s-box>
+
           <s-grid gridTemplateColumns="1fr auto" alignItems="center" padding="small-100" gap="base">
             <s-box>
               <s-heading>Invoice Download</s-heading>

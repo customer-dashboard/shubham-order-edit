@@ -9,7 +9,7 @@ export default () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://visible-hospital-genes-people.trycloudflare.com";
+const BASEURL = "https://continues-collaborative-bring-sells.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
@@ -24,7 +24,7 @@ function OrderStatusManager() {
 
     const edit_address = isEnabled("shipping_address_editing");
     const edit_phone = isEnabled("phone_number_editing");
-    const apply_discount = isEnabled("discount_code");
+
     const download_invoice = isEnabled("invoice_download");
     const delivery_instructions = isEnabled("delivery_instructions");
     const edit_order_lines = isEnabled("order_line_items_editing");
@@ -67,9 +67,7 @@ function OrderStatusManager() {
     const [openAddProduct, setOpenAddProduct] = useState(false);
     const [openEditLines, setOpenEditLines] = useState(false);
     const [replaceIndex, setReplaceIndex] = useState(null);
-    const [openDiscountBox, setOpenDiscountBox] = useState(false);
-    const [discountCode, setDiscountCode] = useState("");
-    const [applyDiscountLoading, setApplyDiscountLoading] = useState(false);
+
 
 
     // Saving states
@@ -637,31 +635,7 @@ function OrderStatusManager() {
         }
     };
 
-    const applyDiscount = async () => {
-        if (!discountCode) return;
-        setApplyDiscountLoading(true);
-        try {
-            const token = await sessionToken.get();
-            const res = await fetch(`${BASEURL}/api/discount/apply`, {
-                method: "POST",
-                headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                body: JSON.stringify({ orderId: orderId_full || orderId, code: discountCode }),
-            });
-            const json = await res.json();
-            if (!res.ok) {
-                shopify.toast.show(json.error || "Discount already applied or invalid.");
-                return;
-            }
-            shopify.toast.show("Discount applied!");
-            if (typeof shopify.navigation !== "undefined") {
-                shopify.navigation.navigate(`https://shopify.com/${storeId}/account/orders/${orderNumericId}`);
-            }
-        } catch (e) {
-            shopify.toast.show("Error: Unable to apply discount.");
-        } finally {
-            setApplyDiscountLoading(false);
-        }
-    };
+
 
 
     const handleProductSearch = async (query) => {
@@ -738,6 +712,7 @@ function OrderStatusManager() {
             };
         });
     };
+
 
 
 
@@ -1003,35 +978,7 @@ function OrderStatusManager() {
                                 )}
                             </s-box>
                         }
-                        <s-divider />
-                        {apply_discount == true &&
-                            <s-box padding="base">
-                                <s-clickable inlineSize="100%" onClick={() => setOpenDiscountBox(!openDiscountBox)}>
-                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
-                                        <s-box padding="large none">
-                                            <s-stack direction="inline" alignItems="center" gap="base">
-                                                <s-icon type="order" />
-                                                <s-heading>Apply discount code</s-heading>
-                                            </s-stack>
-                                        </s-box>
-                                        {openDiscountBox ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
-                                    </s-stack>
-                                </s-clickable>
 
-                                {openDiscountBox && (
-                                    <s-stack direction="inline" gap="base">
-                                        <s-text-field
-                                            label="Discount code"
-                                            value={discountCode}
-                                            onChange={(val) => setDiscountCode(val.target.value)}
-                                        />
-                                        <s-button onClick={applyDiscount} loading={applyDiscountLoading}>
-                                            Apply
-                                        </s-button>
-                                    </s-stack>
-                                )}
-                            </s-box>
-                        }
                         <s-divider />
                         {/* DOWNLOAD INVOICE SECTION */}
                         {download_invoice == true &&
@@ -1300,6 +1247,14 @@ function OrderStatusManager() {
                             </s-box>
                         }
                         <s-divider />
+                        <s-box padding="base">
+                            <s-link
+                                href={`${BASEURL}/api/test-download`}
+                                target="_blank"
+                            >
+                                Download Dummy File (Server)
+                            </s-link>
+                        </s-box>
                     </s-box>
                 )}
             </s-section>

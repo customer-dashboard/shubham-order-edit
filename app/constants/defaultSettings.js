@@ -8,9 +8,7 @@ export const DEFAULT_APP_SETTINGS = {
   "shipping_address_editing": {
     status: "disable"
   },
-  "discount_code": {
-    status: "disable"
-  },
+
   "phone_number_editing": {
     status: "disable"
   },
@@ -60,7 +58,7 @@ export const generateDefaultChartData = () => {
     data[key] = {
       totaledits: 0,
       total_shipping_address_editing: 0,
-      total_discount_code: 0,
+
       total_phone_number_editing: 0,
       total_invoice_download: 0,
       total_delivery_instructions: 0,

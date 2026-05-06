@@ -110,9 +110,13 @@ export async function GetMongoDB(shop, collectionName) {
 export async function MongoDB_2(data, collectionName) {
   try {
     const collection = db.collection(collectionName);
+    // Create a copy and remove _id to prevent "immutable field _id" error in MongoDB
+    const updateData = { ...data };
+    if (updateData._id) delete updateData._id;
+
     const result = await collection.updateOne(
       { shop_name: data.shop_name },
-      { $set: data },
+      { $set: updateData },
       { upsert: true }
     );
     console.log(`[MongoDB] Saved to ${collectionName} for ${data.shop_name}:`, result.upsertedCount > 0 ? "Upserted" : "Updated");
