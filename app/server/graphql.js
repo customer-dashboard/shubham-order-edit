@@ -522,7 +522,7 @@ export async function searchProducts(admin, query, countryCode) {
     const filter = query ? `title:*${query}*` : "";
     const response = await admin.graphql(
       `#graphql
-      query searchProducts($query: String, $country: CountryCode) {
+      query searchProducts($query: String) {
         products(first: 10, query: $query) {
           edges {
             node {
@@ -537,14 +537,22 @@ export async function searchProducts(admin, query, countryCode) {
                   node {
                     id
                     title
-                    contextualPricing(context: { country: $country }) {
-                      price {
-                        amount
-                        currencyCode
-                      }
-                    }
                     sku
                     image { url }
+                    presentmentPrices(first: 20) {
+                      edges {
+                        node {
+                          price {
+                            amount
+                            currencyCode
+                          }
+                          compareAtPrice {
+                            amount
+                            currencyCode
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -552,14 +560,27 @@ export async function searchProducts(admin, query, countryCode) {
           }
         }
       }`,
-      { variables: { query: filter, country: countryCode } }
+      { variables: { query: filter } }
     );
     const json = await response.json();
     const products = json.data?.products?.edges.map(e => {
       const p = e.node;
       return {
         ...p,
-        variants: p.variants.edges.map(ve => ve.node)
+        variants: p.variants.edges.map(ve => {
+          const node = ve.node;
+          // Extract the first presentment price as a fallback for the frontend 'price' field
+          const firstPrice = node.presentmentPrices?.edges?.[0]?.node?.price;
+          return {
+            ...node,
+            price: firstPrice?.amount || "0.00",
+            currencyCode: firstPrice?.currencyCode || "USD",
+            // Keep contextualPricing structure mock for frontend compatibility if needed
+            contextualPricing: {
+              price: firstPrice
+            }
+          };
+        })
       };
     });
     return products || [];

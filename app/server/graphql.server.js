@@ -135,24 +135,53 @@ export async function searchProducts(admin, query, countryCode) {
     const filter = query ? `title:*${query}*` : "";
     const response = await admin.graphql(
       `#graphql
-      query searchProducts($query: String, $country: CountryCode) {
+      query searchProducts($query: String) {
         products(first: 10, query: $query) {
           edges {
             node {
               id title handle featuredImage { url }
               variants(first: 20) {
-                edges { node { id title sku image { url } contextualPricing(context: { country: $country }) { price { amount currencyCode } } } }
+                edges {
+                  node {
+                    id title sku image { url }
+                    presentmentPrices(first: 20) {
+                      edges {
+                        node {
+                          price {
+                            amount
+                            currencyCode
+                          }
+                          compareAtPrice {
+                            amount
+                            currencyCode
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }
         }
       }`,
-      { variables: { query: filter, country: countryCode } }
+      { variables: { query: filter } }
     );
     const json = await response.json();
     return json.data?.products?.edges.map(e => ({
       ...e.node,
-      variants: e.node.variants.edges.map(ve => ve.node)
+      variants: e.node.variants.edges.map(ve => {
+        const node = ve.node;
+        const firstPrice = node.presentmentPrices?.edges?.[0]?.node?.price;
+        return {
+          ...node,
+          price: firstPrice?.amount || "0.00",
+          currencyCode: firstPrice?.currencyCode || "USD",
+          contextualPricing: {
+            price: firstPrice
+          }
+        };
+      })
     })) || [];
 }
 
