@@ -317,7 +317,10 @@ export async function getOrderDetails(admin, orderId) {
           email
           tags
           createdAt
-          currencyCode
+          cancelledAt
+          displayFinancialStatus
+          displayFulfillmentStatus
+          paymentGatewayNames
           totalPriceSet {
             shopMoney { amount currencyCode }
             presentmentMoney { amount currencyCode }
@@ -590,6 +593,36 @@ export async function searchProducts(admin, query, countryCode) {
   }
 }
 
+
+export async function orderCancel(admin, orderId, reason, note) {
+  try {
+    const response = await admin.graphql(
+      `#graphql
+      mutation orderCancel($orderId: ID!, $reason: OrderCancelReason!, $restock: Boolean!) {
+        orderCancel(orderId: $orderId, reason: $reason, restock: $restock) {
+          job {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }`,
+      {
+        variables: {
+          orderId: orderId,
+          reason: "CUSTOMER", // Using CUSTOMER as the standard reason for consumer-initiated cancellations
+          restock: true
+        }
+      }
+    );
+    return await response.json();
+  } catch (e) {
+    console.error("Error in orderCancel mutation:", e);
+    throw e;
+  }
+}
 
 export async function orderEditBegin(admin, orderId) {
   try {

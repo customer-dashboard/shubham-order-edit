@@ -121,7 +121,7 @@ export async function getOrderDetails(admin, orderId) {
     `#graphql
     query getOrderDetails($id: ID!) {
       order(id: $id) {
-        id name email createdAt currencyCode
+        id name email createdAt currencyCode displayFinancialStatus paymentGatewayNames
         shippingAddress { firstName lastName address1 address2 city province zip country phone }
         lineItems(first: 50) { edges { node { id name quantity currentQuantity variant { id } image { url } originalUnitPriceSet { shopMoney { amount currencyCode } } } } }
       }

@@ -14,6 +14,7 @@ export default function OrderPreview({ appSettings }) {
   const delivery_instructions = isEnabled("delivery_instructions");
   const edit_order_lines = isEnabled("order_line_items_editing");
   const add_products = isEnabled("adding_more_products");
+  const order_cancellation = isEnabled("order_cancellation");
 
   // Time Limit check logic (mocked for preview)
   const timeLimitEnabled = appSettings?.time_limit?.status === "enable";
@@ -413,6 +414,23 @@ export default function OrderPreview({ appSettings }) {
                         <span>Add more products</span>
                       </div>
                       <svg className="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Cancel Order */}
+                  {order_cancellation && (
+                    <div className="accordion-item">
+                      <div className="accordion-item-left">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#d32f2f" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18" />
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                        </svg>
+                        <span style={{ color: '#d32f2f' }}>Cancel Order</span>
+                      </div>
+                      <svg className="chevron" viewBox="0 0 24 24" fill="none" stroke="#d32f2f" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M6 9l6 6 6-6" />
                       </svg>
                     </div>

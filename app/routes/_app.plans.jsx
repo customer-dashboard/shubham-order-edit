@@ -68,7 +68,7 @@ export const PricingCard = ({
     );
 };
 
-const PLANS = [
+export const PLANS = [
 
     {
         id: "starter",

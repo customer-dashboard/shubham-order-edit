@@ -9,7 +9,7 @@ export default () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://balance-inns-supplier-pty.trycloudflare.com";
+const BASEURL = "https://specified-admissions-bristol-mystery.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
@@ -29,6 +29,7 @@ function OrderStatusManager() {
     const delivery_instructions = isEnabled("delivery_instructions");
     const edit_order_lines = isEnabled("order_line_items_editing");
     const add_products = isEnabled("adding_more_products");
+    const order_cancellation = isEnabled("order_cancellation");
 
     const view = shopify.extension.editor;
     const orderId = shopify.order?.value?.id;
@@ -97,6 +98,10 @@ function OrderStatusManager() {
     const [isAddingProducts, setIsAddingProducts] = useState(false);
     const [isSavingFullOrder, setIsSavingFullOrder] = useState(false);
     const [page, setPage] = useState(0);
+
+    const [openCancel, setOpenCancel] = useState(false);
+    const [cancelReason, setCancelReason] = useState("");
+    const [isCancelling, setIsCancelling] = useState(false);
 
     // --- Global Editability Check ---
     const getEditabilityStatus = () => {
@@ -229,92 +234,131 @@ function OrderStatusManager() {
     const originalPhoneRef = useRef(null);
     const originalNoteRef = useRef(null);
 
-    useEffect(() => {
-        async function loadData() {
-            try {
-                const token = await sessionToken.get();
-                if (!orderId) {
-                    console.warn("No order ID found");
-                    setLoading(false);
-                    return;
-                }
-                console.log("Loading data for order:", orderId);
-                // Fetch everything in parallel for maximum speed
-                const [orderRes, pRes, noteRes] = await Promise.all([
-                    fetch(`${BASEURL}/api/order-status`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            Target: "GET_ORDER_DETAILS",
-                            id: orderId,
-                            countryCode,
-                            shop: shopify.shop?.myshopifyDomain
-                        }),
-                    }),
-                    fetch(`${BASEURL}/api/products_search`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                        body: JSON.stringify({ query: "" }),
-                    }),
-                    fetch(`${BASEURL}/api/order/fetch_note`, {
-                        method: "POST",
-                        headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
-                        body: JSON.stringify({ Target: "FETCH_DELIVERY_INSTRUCTIONS", UpdatedData: { orderId } }),
-                    })
-                ]);
-
-                const [orderJson, pJson, noteJson] = await Promise.all([
-                    orderRes.json(),
-                    pRes.json(),
-                    noteRes.json()
-                ]);
-                console.log("API responses parsed successfully");
-
-                if (orderJson?.data?.settings) {
-                    setAppSettings(orderJson.data.settings);
-                }
-
-                const fetchedOrder = orderJson.data;
-
-                if (fetchedOrder) {
-                    if (fetchedOrder.shippingAddress) {
-                        setShippingAddress(fetchedOrder.shippingAddress);
-                        setSelectedCountry(fetchedOrder.shippingAddress.countryCode || fetchedOrder.shippingAddress.country || "");
-                        originalAddressRef.current = JSON.parse(JSON.stringify(fetchedOrder.shippingAddress));
-                        originalPhoneRef.current = fetchedOrder.shippingAddress.phone;
-                    }
-                    if (fetchedOrder.email) setCustomerEmail(fetchedOrder.email);
-                    if (fetchedOrder.id) setOrderId_full(fetchedOrder.id);
-
-                    let fetchedForStaging = deepClone(fetchedOrder);
-                    if (fetchedForStaging?.lineItems?.edges) {
-                        fetchedForStaging = {
-                            ...fetchedForStaging,
-                            lineItems: {
-                                ...fetchedForStaging.lineItems,
-                                edges: fetchedForStaging.lineItems.edges.filter((e) => e?.node?.currentQuantity > 0)
-                            }
-                        };
-                    }
-                    setFullOrder(fetchedForStaging);
-                    setOriginalOrder(fetchedForStaging);
-                }
-
-                setProductSearchResults(normalizeProducts(pJson?.data || []));
-                setDeliveryInst(noteJson?.note ?? "");
-                if (noteJson?.note && !originalNoteRef.current) originalNoteRef.current = noteJson.note;
-
-                console.log("Data initialization complete");
-
-            } catch (err) {
-                console.error("loadData error:", err);
-                shopify.toast.show("Error connecting to server. Please check your internet or tunnel.");
-            } finally {
+    async function loadData() {
+        try {
+            setLoading(true);
+            const token = await sessionToken.get();
+            if (!orderId) {
+                console.warn("No order ID found");
                 setLoading(false);
+                return;
             }
+            console.log("Loading data for order:", orderId);
+            // Fetch everything in parallel for maximum speed
+            const [orderRes, pRes, noteRes] = await Promise.all([
+                fetch(`${BASEURL}/api/order-status`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        Target: "GET_ORDER_DETAILS",
+                        id: orderId,
+                        countryCode,
+                        shop: shopify.shop?.myshopifyDomain
+                    }),
+                }),
+                fetch(`${BASEURL}/api/products_search`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                    body: JSON.stringify({ query: "" }),
+                }),
+                fetch(`${BASEURL}/api/order/fetch_note`, {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                    body: JSON.stringify({ Target: "FETCH_DELIVERY_INSTRUCTIONS", UpdatedData: { orderId } }),
+                })
+            ]);
+
+            const [orderJson, pJson, noteJson] = await Promise.all([
+                orderRes.json(),
+                pRes.json(),
+                noteRes.json()
+            ]);
+            console.log("API responses parsed successfully");
+
+            if (orderJson?.data?.settings) {
+                setAppSettings(orderJson.data.settings);
+            }
+
+            const fetchedOrder = orderJson.data;
+
+            if (fetchedOrder) {
+                if (fetchedOrder.shippingAddress) {
+                    setShippingAddress(fetchedOrder.shippingAddress);
+                    setSelectedCountry(fetchedOrder.shippingAddress.countryCode || fetchedOrder.shippingAddress.country || "");
+                    originalAddressRef.current = JSON.parse(JSON.stringify(fetchedOrder.shippingAddress));
+                    originalPhoneRef.current = fetchedOrder.shippingAddress.phone;
+                }
+                if (fetchedOrder.email) setCustomerEmail(fetchedOrder.email);
+                if (fetchedOrder.id) setOrderId_full(fetchedOrder.id);
+
+                let fetchedForStaging = deepClone(fetchedOrder);
+                if (fetchedForStaging?.lineItems?.edges) {
+                    fetchedForStaging = {
+                        ...fetchedForStaging,
+                        lineItems: {
+                            ...fetchedForStaging.lineItems,
+                            edges: fetchedForStaging.lineItems.edges.filter((e) => e?.node?.currentQuantity > 0)
+                        }
+                    };
+                }
+                setFullOrder(fetchedForStaging);
+                setOriginalOrder(fetchedForStaging);
+                originalFullOrderRef.current = deepClone(fetchedForStaging);
+                baselineReadyRef.current = true;
+            }
+
+            if (pJson?.data) {
+                setProductSearchResults(normalizeProducts(pJson.data));
+            }
+
+            if (noteJson?.data) {
+                setDeliveryInst(noteJson.data.note || "");
+                originalNoteRef.current = noteJson.data.note || "";
+            }
+
+        } catch (error) {
+            console.error("Error loading extension data:", error);
+        } finally {
+            setLoading(false);
+            shopify.loading(false);
         }
+    }
+
+    useEffect(() => {
         loadData();
-    }, [orderId]);
+    }, []);
+
+    const handleCancelOrder = async () => {
+        if (!cancelReason) {
+            shopify.toast.show("Please select a reason for cancellation.");
+            return;
+        }
+        setIsCancelling(true);
+        try {
+            const token = await sessionToken.get();
+            const res = await fetch(`${BASEURL}/api/order_cancel`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    orderId,
+                    reason: cancelReason,
+                    orderName: originalOrder?.name
+                }),
+            });
+            const json = await res.json();
+            if (json.status === 200) {
+                shopify.toast.show("Order cancelled successfully.");
+                setOpenCancel(false);
+                setTimeout(() => loadData(), 2000); // Wait for background job to finish
+            } else {
+                shopify.toast.show(json.error || "Unable to cancel order.");
+            }
+        } catch (e) {
+            shopify.toast.show("Error: Unable to cancel order.");
+        } finally {
+            setIsCancelling(false);
+        }
+    };
 
     // Comparison helpers
     const hasAddressChanges = () => {
@@ -813,6 +857,16 @@ function OrderStatusManager() {
         return null;
     }
 
+    // Hide entire widget if order is not Unfulfilled or is Cancelled/Voided
+    if (originalOrder && (
+        (originalOrder.displayFulfillmentStatus && originalOrder.displayFulfillmentStatus !== "UNFULFILLED") ||
+        (originalOrder.cancelledAt) ||
+        (originalOrder.displayFinancialStatus === "CANCELLED") ||
+        (originalOrder.displayFinancialStatus === "VOIDED")
+    )) {
+        return null;
+    }
+
     return (
         <s-stack>
             <s-section>
@@ -1247,14 +1301,55 @@ function OrderStatusManager() {
                             </s-box>
                         }
                         <s-divider />
-                        <s-box padding="base">
-                            <s-link
-                                href={`${BASEURL}/api/test-download`}
-                                target="_blank"
-                            >
-                                Download Dummy File (Server)
-                            </s-link>
-                        </s-box>
+                        {/* ORDER CANCELLATION SECTION */}
+                        {order_cancellation == true && originalOrder?.displayFinancialStatus !== "CANCELLED" && (
+                            <s-box padding="base">
+                                <s-clickable inlineSize="100%" onClick={() => setOpenCancel(!openCancel)}>
+                                    <s-stack direction="inline" alignItems="center" justifyContent="space-between" gap="base" inlineSize="100%">
+                                        <s-box padding="large none">
+                                            <s-stack direction="inline" alignItems="center" gap="base">
+                                                <s-icon type="delete" tone="critical" />
+                                                <s-heading tone="critical">Cancel Order</s-heading>
+                                            </s-stack>
+                                        </s-box>
+                                        {openCancel ? <s-icon type="chevron-up" /> : <s-icon type="chevron-down" />}
+                                    </s-stack>
+                                </s-clickable>
+
+                                {openCancel && (
+                                    <s-stack gap="base" direction="block">
+                                        <s-text color="subdued">If you wish to cancel this order, please select a reason below.</s-text>
+                                        {appSettings?.order_cancellation?.cod_only === true && !originalOrder?.paymentGatewayNames?.some(n => n.toLowerCase().includes("cash on delivery") || n.toLowerCase().includes("manual") || n.toLowerCase().includes("cod")) ? (
+                                            <s-banner tone="warning">
+                                                <s-text>Cancellation is only allowed for Cash on Delivery (COD) orders.</s-text>
+                                            </s-banner>
+                                        ) : !globalEditable ? (
+                                            <s-banner tone="warning">
+                                                <s-text>Order editing and cancellation are currently disabled for this order.</s-text>
+                                            </s-banner>
+                                        ) : (
+                                            <>
+                                                <s-choice-list values={[cancelReason]} onChange={(e) => setCancelReason(e.target?.values?.[0] || "")}>
+                                                    {(appSettings?.order_cancellation?.reasons || []).map((reason) => (
+                                                        <s-choice key={reason} value={reason}>{reason}</s-choice>
+                                                    ))}
+                                                </s-choice-list>
+                                                <s-stack direction="inline" justifyContent="end">
+                                                    <s-button variant="primary" tone="critical" loading={isCancelling} onClick={handleCancelOrder}>Cancel My Order</s-button>
+                                                </s-stack>
+                                            </>
+                                        )}
+                                    </s-stack>
+                                )}
+                            </s-box>
+                        )}
+                        {originalOrder?.displayFinancialStatus === "CANCELLED" && (
+                            <s-box padding="base">
+                                <s-banner tone="critical">
+                                    <s-text>This order has been cancelled.</s-text>
+                                </s-banner>
+                            </s-box>
+                        )}
                     </s-box>
                 )}
             </s-section>

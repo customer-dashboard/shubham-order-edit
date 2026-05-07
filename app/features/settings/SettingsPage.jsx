@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { useOutletContext } from "react-router";
 import { DEFAULT_APP_SETTINGS } from "../../constants/defaultSettings";
 
@@ -13,6 +13,70 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const { setConfig } = useOutletContext();
+  const [newReason, setNewReason] = useState("");
+  const [editingReasonIndex, setEditingReasonIndex] = useState(null);
+  const [editingReasonText, setEditingReasonText] = useState("");
+
+
+  const handleAddReason = () => {
+    if (!newReason.trim()) return;
+    const reasons = appSettings.order_cancellation?.reasons || [];
+    setAppSettings({
+      ...appSettings,
+      order_cancellation: {
+        ...appSettings.order_cancellation,
+        reasons: [...reasons, newReason.trim()]
+      }
+    });
+    setNewReason("");
+  };
+
+  const handleRemoveReason = (index) => {
+    const reasons = [...(appSettings.order_cancellation?.reasons || [])];
+    reasons.splice(index, 1);
+    setAppSettings({
+      ...appSettings,
+      order_cancellation: {
+        ...appSettings.order_cancellation,
+        reasons
+      }
+    });
+  };
+
+  const handleStartEditReason = (index, text) => {
+    setEditingReasonIndex(index);
+    setEditingReasonText(text);
+  };
+
+  const handleSaveEditReason = () => {
+    if (!editingReasonText.trim()) return;
+    const reasons = [...(appSettings.order_cancellation?.reasons || [])];
+    reasons[editingReasonIndex] = editingReasonText.trim();
+    setAppSettings({
+      ...appSettings,
+      order_cancellation: {
+        ...appSettings.order_cancellation,
+        reasons
+      }
+    });
+    setEditingReasonIndex(null);
+    setEditingReasonText("");
+  };
+
+  const handleCancelEditReason = () => {
+    setEditingReasonIndex(null);
+    setEditingReasonText("");
+  };
+
+  const handleCancellationCodChange = () => {
+    setAppSettings({
+      ...appSettings,
+      order_cancellation: {
+        ...appSettings.order_cancellation,
+        cod_only: !appSettings.order_cancellation?.cod_only
+      }
+    });
+  };
 
 
   const SAVE_BAR_ID = "settings-save-bar";
@@ -62,6 +126,10 @@ export default function SettingsPage() {
                 order_tags: {
                   ...DEFAULT_APP_SETTINGS.order_tags,
                   ...(savedSettings.order_tags || {}),
+                },
+                order_cancellation: {
+                  ...DEFAULT_APP_SETTINGS.order_cancellation,
+                  ...(savedSettings.order_cancellation || {}),
                 },
               };
               setAppSettings(JSON.parse(JSON.stringify(finalSettings)));
@@ -267,6 +335,7 @@ export default function SettingsPage() {
 
       {/* Settings page content */}
       <s-page heading="Settings">
+        <s-button href={`shopify:admin/settings/checkout/editor?page=order-status&context=apps&app=${shopify.config.apiKey}`} slot="primary-action" variant="primary">Add block</s-button>
         <s-grid
           gridTemplateColumns="1fr 2fr"
           gap="small"
@@ -291,132 +360,154 @@ export default function SettingsPage() {
                     onChange={handleStatusChange}
                   />
                 </s-grid>
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("shipping_address_editing")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Shipping Address Editing</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="shipping_address_editing"
-                      checked={appSettings?.shipping_address_editing?.status === "enable"}
-                    />
-                  </s-grid>
-                </s-clickable>
+                {appSettings?.status === "enable" && (
+                  <>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("shipping_address_editing")}
+                      accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Shipping Address Editing</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="shipping_address_editing"
+                          checked={appSettings?.shipping_address_editing?.status === "enable"}
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("invoice_download")}
+                      accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Invoice Download</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="invoice_download"
+                          checked={appSettings?.invoice_download?.status === "enable"}
 
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("invoice_download")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Invoice Download</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="invoice_download"
-                      checked={appSettings?.invoice_download?.status === "enable"}
-
-                    />
-                  </s-grid>
-                </s-clickable>
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("delivery_instructions")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Delivery Instructions</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="delivery_instructions"
-                      checked={appSettings?.delivery_instructions?.status === "enable"}
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("delivery_instructions")}
+                      accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Delivery Instructions</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="delivery_instructions"
+                          checked={appSettings?.delivery_instructions?.status === "enable"}
 
 
-                    />
-                  </s-grid>
-                </s-clickable>
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("order_line_items_editing")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Order Line Items Editing</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="order_line_items_editing"
-                      checked={appSettings?.order_line_items_editing?.status === "enable"}
-                    />
-                  </s-grid>
-                </s-clickable>
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("adding_more_products")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Adding More Products</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="adding_more_products"
-                      checked={appSettings?.adding_more_products?.status === "enable"}
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("order_line_items_editing")}
+                      accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Order Line Items Editing</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="order_line_items_editing"
+                          checked={appSettings?.order_line_items_editing?.status === "enable"}
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("adding_more_products")}
+                      accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Adding More Products</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="adding_more_products"
+                          checked={appSettings?.adding_more_products?.status === "enable"}
 
-                    />
-                  </s-grid>
-                </s-clickable>
-                <s-divider />
-                <s-clickable
-                  padding="small-100"
-                  onClick={() => handleToggleSetting("phone_number_editing")}
-                  accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
-                >
-                  <s-grid
-                    gridTemplateColumns="1fr auto"
-                    alignItems="center"
-                    gap="base"
-                  >
-                    <s-box>
-                      <s-heading>Phone Number Editing</s-heading>
-                    </s-box>
-                    <s-switch
-                      name="phone_number_editing"
-                      checked={appSettings?.phone_number_editing?.status === "enable"}
-                    />
-                  </s-grid>
-                </s-clickable>
-                <s-divider />
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("phone_number_editing")}
+                      accessibilityLabel="Configure shipping methods, rates, and fulfillment options"
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Phone Number Editing</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="phone_number_editing"
+                          checked={appSettings?.phone_number_editing?.status === "enable"}
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                    <s-clickable
+                      padding="small-100"
+                      onClick={() => handleToggleSetting("order_cancellation")}
+                    >
+                      <s-grid
+                        gridTemplateColumns="1fr auto"
+                        alignItems="center"
+                        gap="base"
+                      >
+                        <s-box>
+                          <s-heading>Order Cancellation</s-heading>
+                        </s-box>
+                        <s-switch
+                          name="order_cancellation"
+                          checked={appSettings?.order_cancellation?.status === "enable"}
+                        />
+                      </s-grid>
+                    </s-clickable>
+                    <s-divider />
+                  </>
+                )}
               </s-stack>
             </s-section>
             <s-section padding="none">
@@ -560,7 +651,7 @@ export default function SettingsPage() {
                 </s-stack>
               </s-stack>
             </s-section>
-            <s-section padding="none">
+            <s-section padding="none" >
               <s-stack gap="none" overflow="hidden">
                 <s-grid gridTemplateColumns="1fr auto" alignItems="center" padding="base">
                   <s-box>
@@ -594,6 +685,55 @@ export default function SettingsPage() {
                     </s-grid>
                   )}
                 </s-stack>
+              </s-stack>
+            </s-section>
+            <s-section padding="none">
+              <s-stack gap="none" overflow="hidden">
+                <s-box padding="base">
+                  <s-heading>Cancel Reasons</s-heading>
+                </s-box>
+                <s-divider />
+                {(appSettings?.order_cancellation?.reasons || []).map((reason, index) => (
+                  <Fragment key={index}>
+                    {index > 0 && <s-divider />}
+                    <s-grid gridTemplateColumns="1fr auto" alignItems="center" padding="base">
+                      {editingReasonIndex === index ? (
+                        <s-stack direction="inline" gap="small" inlineSize="100%">
+                          <s-text-field
+                            value={editingReasonText}
+                            onInput={(e) => setEditingReasonText(e.target.value)}
+                            autoFocus
+                            style={{ flex: 1 }}
+                          />
+                          <s-button variant="primary" onClick={handleSaveEditReason}>Save</s-button>
+                          <s-button variant="secondary" onClick={handleCancelEditReason}>Cancel</s-button>
+                        </s-stack>
+                      ) : (
+                        <>
+                          <s-text>{reason}</s-text>
+                          <s-stack direction="inline" gap="small">
+                            <s-button variant="secondary" onClick={() => handleStartEditReason(index, reason)}>
+                              <s-icon type="edit" size="small" />
+                            </s-button>
+                            <s-button variant="secondary" tone="critical" onClick={() => handleRemoveReason(index)}>
+                              <s-icon type="delete" size="small" />
+                            </s-button>
+                          </s-stack>
+                        </>
+                      )}
+                    </s-grid>
+                  </Fragment>
+                ))}
+              </s-stack>
+              <s-divider />
+              <s-stack direction="inline" gap="small" padding="base">
+                <s-text-field
+                  placeholder="Add new reason..."
+                  value={newReason}
+                  onInput={(e) => setNewReason(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <s-button variant="secondary" onClick={handleAddReason}>Add Reason</s-button>
               </s-stack>
             </s-section>
           </s-stack>

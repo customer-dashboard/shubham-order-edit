@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useOutletContext, useNavigate } from "react-router";
+import { PLANS, PricingCard } from "../../routes/_app.plans";
 
 export default function OnboardingPage({ isReset }) {
   const { config, setConfig } = useOutletContext();
@@ -13,7 +14,8 @@ export default function OnboardingPage({ isReset }) {
     { id: 0, title: "Welcome" },
     { id: 1, title: "Quick Settings" },
     { id: 2, title: "Activate Extension" },
-    { id: 3, title: "Complete" },
+    { id: 3, title: "Choose Plan" },
+    { id: 4, title: "Complete" },
   ];
 
   // If testing reset, start from 0, otherwise use saved step
@@ -38,6 +40,17 @@ export default function OnboardingPage({ isReset }) {
   useEffect(() => {
     if (currentStep === 2) {
       checkExtensionStatus();
+    }
+    if (currentStep === 3) {
+       // Check if they already have a plan to auto-advance
+       fetch("/api/get-billing")
+       .then(res => res.json())
+       .then(data => {
+         if (data && data.status === "active") {
+            nav(1);
+         }
+       })
+       .catch(err => console.error("Error checking billing:", err));
     }
   }, [currentStep]);
 
@@ -107,6 +120,43 @@ export default function OnboardingPage({ isReset }) {
     saveOnboardingState(updated);
     setActiveStep(next);
   };
+
+  const [loadingPlan, setLoadingPlan] = useState("");
+
+  const postPayment = async (plan) => {
+    setLoadingPlan(plan.id);
+    let price = plan.monthlyPriceValue;
+
+    try {
+        const response = await fetch('/api/post-billing', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                name: plan.shopifyHandle,
+                planObject: plan,
+                shop: typeof shopify !== 'undefined' ? shopify.config.shop : "",
+                test: true, // Onboarding usually starts in test mode or based on development store
+                price: price,
+                active: "Monthly",
+                returnPath: `/onboarding` // Will come back to onboarding, loader will handle charge_id and we will auto-advance
+            })
+        });
+        const result = await response.json();
+
+        if (result.data) {
+            open(result.data, "_top");
+        } else if (result.error) {
+            if (typeof shopify !== 'undefined') shopify.toast.show(result.error, { isError: true });
+            setLoadingPlan("");
+        }
+    } catch (err) {
+        console.error("Payment error:", err);
+        setLoadingPlan("");
+    }
+};
 
   const finish = () => {
     const updated = {
@@ -293,8 +343,39 @@ export default function OnboardingPage({ isReset }) {
                 </s-stack>
               )}
 
-              {/* STEP 3: Complete */}
+              {/* STEP 3: Choose Plan */}
               {currentStep === 3 && (
+                <s-stack gap="base">
+                  <s-stack>
+                    <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Choose Your Plan</h1>
+                    <s-paragraph color="subdued">
+                      Select a plan to start using Order Edit Pro. All plans include a 7-day free trial.
+                    </s-paragraph>
+                  </s-stack>
+                  <s-grid gap="base" gridTemplateColumns="1fr 1fr 1fr">
+                    {PLANS.map((plan) => (
+                      <PricingCard
+                        key={plan.id}
+                        title={plan.title}
+                        price={plan.monthlyPrice}
+                        frequency="mo"
+                        features={plan.features.slice(0, 3)} // Show fewer features for onboarding
+                        button={{
+                          content: "Select",
+                          props: {
+                            variant: "primary",
+                            loading: loadingPlan === plan.id,
+                            onClick: () => postPayment(plan),
+                          },
+                        }}
+                      />
+                    ))}
+                  </s-grid>
+                </s-stack>
+              )}
+
+              {/* STEP 4: Complete */}
+              {currentStep === 4 && (
                 <s-stack gap="small" alignItems="center">
                   <s-box inlineSize="150px">
                     <s-image
@@ -327,7 +408,7 @@ export default function OnboardingPage({ isReset }) {
                     variant="primary"
                     onClick={() => nav(1)}
                     loading={isSaving}
-                    disabled={currentStep === 2 && !isExtensionActive}
+                    disabled={(currentStep === 2 && !isExtensionActive) || currentStep === 3}
                   >
                     {currentStep === 0 ? "Let's Start →" : "Save & Continue →"}
                   </s-button>

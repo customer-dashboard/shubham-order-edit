@@ -179,7 +179,6 @@ export default function DashboardPage() {
                 Give your customers the power to fix mistakes instantly without contacting support. Setup takes less than 2 minutes.
               </s-paragraph>
             </s-box>
-            {console.log(shopify)}
             <s-button
               variant="primary"
               href={`shopify:admin/settings/checkout/editor?page=order-status&context=apps&app=${shopify.config.apiKey}`}

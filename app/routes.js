@@ -11,6 +11,7 @@ export default [
   route("api/order/delivery_instruction", "api/order_delivery_instruction.jsx"),
   route("api/products_search", "api/products_search.jsx"),
   route("api/order/update", "api/order_update.jsx"),
+  route("api/order_cancel", "api/order_cancel.jsx"),
 
   route("api/post-billing", "api/post-billing.jsx"),
   route("api/get-billing", "api/get-billing.jsx"),

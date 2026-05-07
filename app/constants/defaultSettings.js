@@ -43,6 +43,18 @@ export const DEFAULT_APP_SETTINGS = {
     status: "disable",
     tags: "",
     action: "disable_complete"
+  },
+  order_cancellation: {
+    status: "disable",
+    cod_only: false,
+    reasons: [
+      "Changed my mind",
+      "Selected wrong address",
+      "Placed by mistake",
+      "Found better product/price",
+      "Not happy with the delivery timeline",
+      "Other reason"
+    ]
   }
 };
 
