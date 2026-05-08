@@ -317,7 +317,7 @@ export default function AnalyticsPage() {
       )}
 
       <s-stack alignItems="center" paddingBlock="large">
-        <s-text>Learn more about <s-link href="">Order Editing</s-link>.</s-text>
+        <s-text>Order edit pro © 2026</s-text>
       </s-stack>
     </s-page>
   );

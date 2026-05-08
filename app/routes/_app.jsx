@@ -61,7 +61,7 @@ export default function App() {
         const { data } = await response.json();
         const value = data?.shop?.metafield?.value;
         const limitReached = data?.shop?.usageLimit?.value === "true";
-        
+
         if (value) {
           const parsed = JSON.parse(value);
           setConfig({ ...parsed, limit_reached: limitReached });
@@ -102,9 +102,9 @@ export default function App() {
     return (
       <ShopifyAppProvider embedded apiKey={apiKey}>
         <s-page>
-           <s-box paddingBlock="large-400">
-              <s-skeleton-body-text lines={10} />
-           </s-box>
+          <s-box paddingBlock="large-400">
+            <s-skeleton-body-text lines={10} />
+          </s-box>
         </s-page>
       </ShopifyAppProvider>
     );

@@ -207,47 +207,12 @@ export default function DashboardPage() {
               'invoice_download',
               'delivery_instructions',
               'order_line_items_editing',
-              'adding_more_products'
-            ].filter(key => config?.[key]?.status === 'enable').length} / 6
+              'adding_more_products',
+              'order_cancellation'
+            ].filter(key => config?.[key]?.status === 'enable').length} / 7
           </s-heading>
         </s-section>
       </s-grid>
-
-
-      {/* Analytics Chart Section */}
-      <s-section>
-        <s-grid gap="base">
-          <s-grid gridTemplateColumns="1fr auto" alignItems="center">
-            <s-box>
-              <s-heading variant="headingLg">Performance Overview</s-heading>
-              <s-text color="subdued">Last 30 days</s-text>
-            </s-box>
-            <s-link href="/analytics">Detailed analytics →</s-link>
-          </s-grid>
-
-          <s-box minHeight="300px" paddingBlockStart="base">
-            {(() => {
-              const chartData = prepareChartData(analyticsData?.last30daysdata);
-              const maxVal = Math.max(0, ...chartData.map(d => d.value));
-              return (
-                <LineChart
-                  data={[
-                    {
-                      name: "Total Edits",
-                      data: chartData,
-                      showPoints: false,
-                    },
-                  ]}
-                  showLegend={false}
-                  yAxisOptions={{
-                    integersOnly: true,
-                  }}
-                />
-              );
-            })()}
-          </s-box>
-        </s-grid>
-      </s-section>
 
 
       {/* Feature Highlights Section */}
@@ -302,6 +267,42 @@ export default function DashboardPage() {
           </s-stack>
         </s-section>
       </s-grid>
+
+      {/* Analytics Chart Section */}
+      <s-section>
+        <s-grid gap="base">
+          <s-grid gridTemplateColumns="1fr auto" alignItems="center">
+            <s-box>
+              <s-heading variant="headingLg">Performance Overview</s-heading>
+              <s-text color="subdued">Last 30 days</s-text>
+            </s-box>
+            <s-link href="/analytics">Analytics →</s-link>
+          </s-grid>
+
+          <s-box minHeight="300px" paddingBlockStart="base">
+            {(() => {
+              const chartData = prepareChartData(analyticsData?.last30daysdata);
+              const maxVal = Math.max(0, ...chartData.map(d => d.value));
+              return (
+                <LineChart
+                  data={[
+                    {
+                      name: "Total Edits",
+                      data: chartData,
+                      showPoints: false,
+                    },
+                  ]}
+                  showLegend={false}
+                  yAxisOptions={{
+                    integersOnly: true,
+                  }}
+                />
+              );
+            })()}
+          </s-box>
+        </s-grid>
+      </s-section>
+
 
 
       <s-section heading="Recommended apps">
@@ -376,9 +377,7 @@ export default function DashboardPage() {
       </s-section>
 
       <s-stack alignItems="center" paddingBlock="large">
-        <s-text color="subdued">
-          Learn more about <s-link href="https://help.shopify.com" target="_blank">Order Editing</s-link> or <s-link href="mailto:support@example.com">Contact Support</s-link>.
-        </s-text>
+        <s-text>Order edit pro © 2026</s-text>
       </s-stack>
     </s-page>
   );

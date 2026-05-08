@@ -739,8 +739,8 @@ export default function SettingsPage() {
           </s-stack>
           <OrderPreview appSettings={appSettings} />
         </s-grid>
-        <s-stack alignItems="center" padding="large">
-          <s-text>Learn more about <s-link href="https://help.shopify.com" target="_blank">Order Editing</s-link>.</s-text>
+        <s-stack alignItems="center" paddingBlock="large">
+          <s-text>Order edit pro © 2026</s-text>
         </s-stack>
       </s-page>
     </>

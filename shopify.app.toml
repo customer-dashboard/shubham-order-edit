@@ -1,15 +1,19 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "c86ec57da9db212c97945e189650ae77"
-name = "Order Edit Pro"
+name = "Order Editing - MT"
 application_url = "https://example.com"
 embedded = true
 
-[build]
-automatically_update_urls_on_dev = true
+
+
+[access.admin]
+embedded_app_direct_api_access = true
+
+
 
 [webhooks]
-api_version = "2025-01"
+api_version = "2026-07"
 
   [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
@@ -21,7 +25,7 @@ api_version = "2025-01"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products,read_customers,read_locales,write_customers,read_themes,write_themes,customer_read_orders,read_customers,write_order_edits,write_orders"
+scopes = "customer_read_orders,read_customers,read_locales,read_themes,write_customers,write_order_edits,write_orders,write_products,write_themes"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
@@ -49,3 +53,6 @@ required = true
 [metaobjects.app.example.fields.description]
 name = "Description"
 type = "multi_line_text_field"
+
+[build]
+automatically_update_urls_on_dev = true

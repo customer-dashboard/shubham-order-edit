@@ -42,15 +42,7 @@ export default function OnboardingPage({ isReset }) {
       checkExtensionStatus();
     }
     if (currentStep === 3) {
-       // Check if they already have a plan to auto-advance
-       fetch("/api/get-billing")
-       .then(res => res.json())
-       .then(data => {
-         if (data && data.status === "active") {
-            nav(1);
-         }
-       })
-       .catch(err => console.error("Error checking billing:", err));
+      // Merchant is on Plan step, we stay here until they select a plan
     }
   }, [currentStep]);
 
@@ -128,35 +120,43 @@ export default function OnboardingPage({ isReset }) {
     let price = plan.monthlyPriceValue;
 
     try {
-        const response = await fetch('/api/post-billing', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                name: plan.shopifyHandle,
-                planObject: plan,
-                shop: typeof shopify !== 'undefined' ? shopify.config.shop : "",
-                test: true, // Onboarding usually starts in test mode or based on development store
-                price: price,
-                active: "Monthly",
-                returnPath: `/onboarding` // Will come back to onboarding, loader will handle charge_id and we will auto-advance
-            })
-        });
-        const result = await response.json();
+      const response = await fetch('/api/post-billing', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: plan.shopifyHandle,
+          planObject: plan,
+          shop: typeof shopify !== 'undefined' ? shopify.config.shop : "",
+          test: true,
+          price: price,
+          active: "Monthly",
+          returnPath: `/`
+        })
+      });
+      const result = await response.json();
 
-        if (result.data) {
-            open(result.data, "_top");
-        } else if (result.error) {
-            if (typeof shopify !== 'undefined') shopify.toast.show(result.error, { isError: true });
-            setLoadingPlan("");
-        }
-    } catch (err) {
-        console.error("Payment error:", err);
+      if (result.data) {
+        // Pre-emptively set the next step to "Complete" so they land there after returning from Shopify
+        const updated = {
+          ...config,
+          onboarding: { ...config.onboarding, step: 4 },
+        };
+        setConfig(updated);
+        saveOnboardingState(updated);
+
+        open(result.data, "_top");
+      } else if (result.error) {
+        if (typeof shopify !== 'undefined') shopify.toast.show(result.error, { isError: true });
         setLoadingPlan("");
+      }
+    } catch (err) {
+      console.error("Payment error:", err);
+      setLoadingPlan("");
     }
-};
+  };
 
   const finish = () => {
     const updated = {
@@ -191,7 +191,7 @@ export default function OnboardingPage({ isReset }) {
           <s-stack gap="extraTight">
             <s-stack direction="inline" justifyContent="space-between" alignItems="center">
               <s-text color="subdued" variant="bodySm">
-                Step {currentStep + 1} of {steps.length}: {steps[currentStep].title}
+                Step {currentStep + 1} of {steps.length}
               </s-text>
               <s-stack direction="inline" gap="extraTight">
                 {steps.map((s) => (
@@ -216,9 +216,8 @@ export default function OnboardingPage({ isReset }) {
           </s-stack>
 
           <s-stack gap="none">
-            <s-section inlineSize="small">
-              {/* STEP 0: Welcome & Benefits */}
-              {currentStep === 0 && (
+            {currentStep === 0 && (
+              <s-section inlineSize="small">
                 <s-grid gridTemplateColumns="2fr 1fr">
                   <s-stack gap="base">
                     <s-stack gap="small">
@@ -257,10 +256,12 @@ export default function OnboardingPage({ isReset }) {
                   </s-stack>
                   <s-image src="https://mandasa1.b-cdn.net/custlo_order_edit__720.png" alt="" />
                 </s-grid>
-              )}
+              </s-section>
+            )}
 
-              {/* STEP 1: Quick Settings */}
-              {currentStep === 1 && (
+            {/* STEP 1: Quick Settings */}
+            {currentStep === 1 && (
+              <s-section inlineSize="small">
                 <s-stack gap="base">
                   <s-stack>
                     <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Quick Settings</h1>
@@ -293,10 +294,12 @@ export default function OnboardingPage({ isReset }) {
                     </s-stack>
                   </s-box>
                 </s-stack>
-              )}
+              </s-section>
+            )}
 
-              {/* STEP 2: Activate Extension */}
-              {currentStep === 2 && (
+            {/* STEP 2: Activate Extension */}
+            {currentStep === 2 && (
+              <s-section inlineSize="small">
                 <s-stack gap="base">
                   <s-stack>
                     <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Activate the Edit Block</h1>
@@ -341,41 +344,43 @@ export default function OnboardingPage({ isReset }) {
                     </s-stack>
                   </s-box>
                 </s-stack>
-              )}
+              </s-section>
+            )}
 
-              {/* STEP 3: Choose Plan */}
-              {currentStep === 3 && (
-                <s-stack gap="base">
-                  <s-stack>
-                    <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Choose Your Plan</h1>
-                    <s-paragraph color="subdued">
-                      Select a plan to start using Order Edit Pro. All plans include a 7-day free trial.
-                    </s-paragraph>
-                  </s-stack>
-                  <s-grid gap="base" gridTemplateColumns="1fr 1fr 1fr">
-                    {PLANS.map((plan) => (
-                      <PricingCard
-                        key={plan.id}
-                        title={plan.title}
-                        price={plan.monthlyPrice}
-                        frequency="mo"
-                        features={plan.features.slice(0, 3)} // Show fewer features for onboarding
-                        button={{
-                          content: "Select",
-                          props: {
-                            variant: "primary",
-                            loading: loadingPlan === plan.id,
-                            onClick: () => postPayment(plan),
-                          },
-                        }}
-                      />
-                    ))}
-                  </s-grid>
+            {/* STEP 3: Choose Plan */}
+            {currentStep === 3 && (
+              <s-stack gap="base">
+                <s-stack>
+                  <h1 tone='bold' style={{ fontSize: "1rem", fontWeight: "600" }}> Choose Your Plan</h1>
+                  <s-paragraph color="subdued">
+                    Select a plan to start using Order Edit Pro. All plans include a 7-day free trial.
+                  </s-paragraph>
                 </s-stack>
-              )}
+                <s-grid gap="base" gridTemplateColumns="1fr 1fr 1fr">
+                  {PLANS.map((plan) => (
+                    <PricingCard
+                      key={plan.id}
+                      title={plan.title}
+                      price={plan.monthlyPrice}
+                      frequency="mo"
+                      features={plan.features.slice(0, 7)} // Show more features for onboarding
+                      button={{
+                        content: "Select",
+                        props: {
+                          variant: "primary",
+                          loading: loadingPlan === plan.id,
+                          onClick: () => postPayment(plan),
+                        },
+                      }}
+                    />
+                  ))}
+                </s-grid>
+              </s-stack>
+            )}
 
-              {/* STEP 4: Complete */}
-              {currentStep === 4 && (
+            {/* STEP 4: Complete */}
+            {currentStep === 4 && (
+              <s-section inlineSize="small">
                 <s-stack gap="small" alignItems="center">
                   <s-box inlineSize="150px">
                     <s-image
@@ -391,8 +396,8 @@ export default function OnboardingPage({ isReset }) {
                     Go to Dashboard →
                   </s-button>
                 </s-stack>
-              )}
-            </s-section>
+              </s-section>
+            )}
 
             {/* NAVIGATION */}
             <s-box paddingBlock="base" paddingInline="base" borderTop="base">

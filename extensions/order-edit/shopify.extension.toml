@@ -6,7 +6,7 @@
 api_version = "2026-01"
 
 [[extensions]]
-name = "order-edit"
+name = "Order edit"
 handle = "order-edit"
 type = "ui_extension"
 uid = "90b65574-81fb-fc59-bbe8-2134cea9c80971559da8"

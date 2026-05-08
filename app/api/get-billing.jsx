@@ -55,17 +55,12 @@ export async function loader({ request }) {
     return activePlan;
   }
 
-  // 3. Default to free if nothing found (and not explicitly set to free in MongoDB)
-  const freePlan = {
+  // 3. Default to none if nothing found
+  const noPlan = {
     shop_name: session.shop,
-    status: 'active',
-    name: 'free'
+    status: 'none',
+    name: 'none'
   };
 
-  // If MongoDB doesn't even have the record, we might want to store free status
-  if (!billingPlan) {
-     await MongoDB_2(freePlan, "billing_plan");
-  }
-
-  return freePlan;
+  return noPlan;
 }

@@ -9,7 +9,7 @@ export default () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://specified-admissions-bristol-mystery.trycloudflare.com";
+const BASEURL = "https://repair-selective-visual-lions.trycloudflare.com";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);
@@ -30,8 +30,8 @@ function OrderStatusManager() {
     const edit_order_lines = isEnabled("order_line_items_editing");
     const add_products = isEnabled("adding_more_products");
     const order_cancellation = isEnabled("order_cancellation");
-
-    const view = shopify.extension.editor;
+    console.log("333333", shopify.extension.editor);
+    const view = shopify.extension.editor?.type == "checkout" ? true : false;
     const orderId = shopify.order?.value?.id;
     const sessionToken = shopify.sessionToken;
 
@@ -317,10 +317,10 @@ function OrderStatusManager() {
             }
 
         } catch (error) {
-            console.error("Error loading extension data:", error);
+            console.error("CRITICAL: Error loading extension data:", error);
+            console.log("Current BASEURL used:", BASEURL);
         } finally {
             setLoading(false);
-            shopify.loading(false);
         }
     }
 
@@ -853,12 +853,12 @@ function OrderStatusManager() {
         );
     }
 
-    if (!globalEditable && editability.reason === "limit_reached") {
+    if (!view && !globalEditable && editability.reason === "limit_reached") {
         return null;
     }
 
-    // Hide entire widget if order is not Unfulfilled or is Cancelled/Voided
-    if (originalOrder && (
+    // Hide entire widget if order is not Unfulfilled or is Cancelled/Voided (only on live site)
+    if (!view && originalOrder && (
         (originalOrder.displayFulfillmentStatus && originalOrder.displayFulfillmentStatus !== "UNFULFILLED") ||
         (originalOrder.cancelledAt) ||
         (originalOrder.displayFinancialStatus === "CANCELLED") ||

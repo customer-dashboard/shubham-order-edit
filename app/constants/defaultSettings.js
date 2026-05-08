@@ -6,23 +6,25 @@ export const DEFAULT_APP_SETTINGS = {
   },
 
   "shipping_address_editing": {
-    status: "disable"
+    status: "enable"
   },
-
   "phone_number_editing": {
-    status: "disable"
+    status: "enable"
   },
   "invoice_download": {
-    status: "disable"
+    status: "enable"
   },
   "delivery_instructions": {
-    status: "disable"
+    status: "enable"
   },
   "order_line_items_editing": {
-    status: "disable"
+    status: "enable"
   },
   "adding_more_products": {
-    status: "disable"
+    status: "enable"
+  },
+  "discount_code": {
+    status: "enable"
   },
   time_limit: {
     status: "disable",
@@ -45,7 +47,7 @@ export const DEFAULT_APP_SETTINGS = {
     action: "disable_complete"
   },
   order_cancellation: {
-    status: "disable",
+    status: "enable",
     cod_only: false,
     reasons: [
       "Changed my mind",

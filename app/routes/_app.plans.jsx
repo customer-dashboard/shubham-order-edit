@@ -69,24 +69,24 @@ export const PricingCard = ({
 };
 
 export const PLANS = [
-
     {
         id: "starter",
         plan_id: "plan_starter_v1",
         edit_limit: 50,
         title: "Starter",
-        description: "Perfect for small stores",
+        description: "Everything you need to start",
         monthlyPrice: "$8",
         monthlyPriceValue: 8.00,
         shopifyHandle: "starter",
         features: [
             "50 Order Edits / month",
-            "Shipping Address Editing",
-            "Phone Number Editing",
-            "Delivery Instructions",
-            "Time Limit Restriction",
-            "Order Tags Restriction",
-            "Standard Support"
+            "Address & Phone Editing",
+            "Order Cancellation",
+            "Item Quantity & Swaps",
+            "Add Products to Order",
+            "Activity Logs & History",
+            "Time & Tag Restrictions",
+            "Invoice Downloads"
         ]
     },
     {
@@ -94,19 +94,20 @@ export const PLANS = [
         plan_id: "plan_growth_v1",
         edit_limit: 100,
         title: "Growth",
-        featuredText: "Best Value",
-        description: "For growing stores",
+        featuredText: "Recommended",
+        description: "For growing businesses",
         monthlyPrice: "$20",
         monthlyPriceValue: 20.00,
         shopifyHandle: "growth",
         features: [
             "100 Order Edits / month",
-            "Everything in Starter",
-            "Order Line Items Editing",
-            "Adding More Products",
-            "Discount Code Editing",
-            "Customer Tags Restriction",
-            "Priority Support"
+            "Address & Phone Editing",
+            "Order Cancellation",
+            "Item Quantity & Swaps",
+            "Add Products to Order",
+            "Activity Logs & History",
+            "Time & Tag Restrictions",
+            "Invoice Downloads"
         ]
     },
     {
@@ -114,17 +115,19 @@ export const PLANS = [
         plan_id: "plan_enterprise_v1",
         edit_limit: -1, // Unlimited
         title: "Enterprise",
-        description: "Full power for high volume",
+        description: "Maximum power & scale",
         monthlyPrice: "$40",
         monthlyPriceValue: 40.00,
         shopifyHandle: "enterprise",
         features: [
             "Unlimited Order Edits",
-            "Everything in Growth",
-            "Invoice Download",
-            "Product Tags Restriction",
-            "Custom Feature Requests",
-            "Dedicated Account Manager"
+            "Address & Phone Editing",
+            "Order Cancellation",
+            "Item Quantity & Swaps",
+            "Add Products to Order",
+            "Activity Logs & History",
+            "Time & Tag Restrictions",
+            "Invoice Downloads"
         ]
     }
 ];
