@@ -1,7 +1,8 @@
 import { authenticate } from "../shopify.server";
-import { getDatabyQuery, GetMongoDB, MongoDB_2, billingConfig } from "../lib/billing.server";
+
 
 export async function loader({ request }) {
+  const { getDatabyQuery, GetMongoDB, MongoDB_2, billingConfig } = await import("../lib/billing.server");
   const { session } = await authenticate.admin(request);
 
   // 1. Check MongoDB first for active plan
@@ -63,4 +64,8 @@ export async function loader({ request }) {
   };
 
   return noPlan;
+}
+
+export default function Component() {
+  return null;
 }

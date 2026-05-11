@@ -1,8 +1,9 @@
 import { authenticate, sessionStorage } from "../shopify.server";
-import { logUninstallation } from "../mongodb.server";
-import { cancelBillingPlan, stopTrialTracking } from "../lib/billing.server";
+
 
 export const action = async ({ request }) => {
+  const { logUninstallation } = await import("../mongodb.server");
+  const { cancelBillingPlan, stopTrialTracking } = await import("../lib/billing.server");
   const { shop, session, topic, payload } = await authenticate.webhook(request);
 
   console.log(`Received ${topic} webhook for ${shop}`);

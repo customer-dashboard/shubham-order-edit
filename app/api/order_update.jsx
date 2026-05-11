@@ -1,6 +1,6 @@
 import { authenticate, unauthenticated } from "../shopify.server";
 import { orderEditBegin, orderEditAddVariant, orderEditCommit, orderEditSetQuantity, logActivity } from "../server/graphql";
-import { getCurrentMonthEditCount, syncUsageStatus, GetMongoDB } from "../lib/billing.server";
+
 
 export const loader = async ({ request }) => {
   const { cors } = await authenticate.public.customerAccount(request);
@@ -8,6 +8,7 @@ export const loader = async ({ request }) => {
 };
 
 export const action = async ({ request }) => {
+  const { getCurrentMonthEditCount, syncUsageStatus, GetMongoDB } = await import("../lib/billing.server");
   const { shop, cors, sessionToken } = await authenticate.public.customerAccount(request);
   const shopDomain = shop || sessionToken?.dest;
 

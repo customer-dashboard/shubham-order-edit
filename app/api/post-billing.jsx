@@ -1,16 +1,17 @@
 import { authenticate } from "../shopify.server";
-import {
-  billingConfig,
-  getDatabyQuery,
-  GetMongoDB,
-  MongoDB_2,
-  dateDiffInDays,
-  CurrentDate,
-  IS_TEST_MODE,
-  calculateTrialDays
-} from "../lib/billing.server";
+
 
 export async function action({ request }) {
+  const {
+    billingConfig,
+    getDatabyQuery,
+    GetMongoDB,
+    MongoDB_2,
+    dateDiffInDays,
+    CurrentDate,
+    IS_TEST_MODE,
+    calculateTrialDays
+  } = await import("../lib/billing.server");
   const { session, admin } = await authenticate.admin(request);
   const body = await request.json();
   const { name, planObject, shop, test, price, active, iscustomplan, onboarding, returnPath } = body;
@@ -106,4 +107,8 @@ export async function action({ request }) {
   await MongoDB_2(planStorage, "billing_plan");
 
   return { data: dataResult.appSubscriptionCreate.confirmationUrl };
+}
+
+export default function Component() {
+  return null;
 }

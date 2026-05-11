@@ -3,12 +3,13 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider as ShopifyAppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
-import { confirmBillingPlan, initializeTrialManagement, syncUsageStatus } from "../lib/billing.server";
+
 import { AppProvider as PolarisProvider } from "@shopify/polaris";
 import translations from "@shopify/polaris/locales/en.json";
 
 
 export const loader = async ({ request }) => {
+  const { confirmBillingPlan, initializeTrialManagement, syncUsageStatus } = await import("../lib/billing.server");
   const { session, admin } = await authenticate.admin(request);
   await initializeTrialManagement(session.shop);
   await syncUsageStatus(session, admin);

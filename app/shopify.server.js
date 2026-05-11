@@ -1,3 +1,12 @@
+import dns from "node:dns";
+
+// Force Node.js to use Google's DNS servers to resolve MongoDB SRV records
+// This fixes querySrv ECONNREFUSED errors in some environments
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 import {
   ApiVersion,
   AppDistribution,
@@ -9,14 +18,20 @@ import { MongoDBSessionStorage } from "@shopify/shopify-app-session-storage-mong
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
-  apiVersion: ApiVersion.October25,
+  apiVersion: ApiVersion.April26,
   scopes: process.env.SCOPES?.split(","),
   appUrl: process.env.SHOPIFY_APP_URL || "",
   authPathPrefix: "/auth",
   sessionStorage: new MongoDBSessionStorage(
     process.env.MONGODB_URI || "mongodb://localhost:27017",
     "order-edit",
-    { sessionCollectionName: "session_data" }
+    { 
+      sessionCollectionName: "session_data",
+      connectionOptions: {
+        serverSelectionTimeoutMS: 5000,
+        connectTimeoutMS: 10000,
+      }
+    }
   ),
   distribution: AppDistribution.AppStore,
   future: {
@@ -46,7 +61,7 @@ const shopify = shopifyApp({
 });
 
 export default shopify;
-export const apiVersion = ApiVersion.October25;
+export const apiVersion = ApiVersion.April26;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
 export const authenticate = shopify.authenticate;
 export const unauthenticated = shopify.unauthenticated;
