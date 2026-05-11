@@ -9,7 +9,7 @@ export default () => {
 };
 
 // Keeping the tunnel URL as requested (current code is perfectly working)
-const BASEURL = "https://repair-selective-visual-lions.trycloudflare.com";
+const BASEURL = "https://order-edit.fly.dev";
 
 function OrderStatusManager() {
     const [appSettings, setAppSettings] = useState(null);

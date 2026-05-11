@@ -1,3 +1,11 @@
 .cache
 build
 node_modules
+.git
+.github
+.env
+Dockerfile
+fly.toml
+*.md
+.shopify
+.vscode

@@ -178,6 +178,125 @@ export async function action({ request }) {
               status: 200
             };
 
+        case "GET_BILLING": {
+          const { getDatabyQuery, GetMongoDB, MongoDB_2, billingConfig } = await import("../lib/billing.server");
+          let billingPlan = await GetMongoDB(session.shop, "billing_plan");
+          billingPlan = billingPlan && billingPlan !== '""' ? JSON.parse(billingPlan) : null;
+
+          if (billingPlan && billingPlan.status === 'active') {
+            let trialInfo = await GetMongoDB(session.shop, "trial_management");
+            trialInfo = trialInfo && trialInfo !== '""' ? JSON.parse(trialInfo) : null;
+            return { data: { ...billingPlan, trial_info: trialInfo }, status: 200 };
+          }
+
+          const data2 = {
+            query: `{
+              currentAppInstallation {
+                activeSubscriptions {
+                    status
+                    id
+                    name
+                    test
+                }
+              }
+            }`
+          };
+
+          const planResult = await getDatabyQuery(session, data2);
+          const activeSub = planResult.data?.currentAppInstallation?.activeSubscriptions?.[0];
+
+          if (activeSub && activeSub.status === 'ACTIVE') {
+            const activePlan = {
+              shop_name: session.shop,
+              status: 'active',
+              name: activeSub.name.toLowerCase(),
+              id: activeSub.id,
+              test: activeSub.test,
+              plan_id: billingConfig[activeSub.name.toLowerCase()]?.id || `plan_${activeSub.name.toLowerCase()}_v1`,
+              edit_limit: billingConfig[activeSub.name.toLowerCase()]?.edit_limit || -1,
+              plan_date: new Date().toISOString()
+            };
+            await MongoDB_2(activePlan, "billing_plan");
+            return { data: activePlan, status: 200 };
+          }
+
+          return { data: { shop_name: session.shop, status: 'none', name: 'none' }, status: 200 };
+        }
+
+        case "POST_BILLING": {
+          const {
+            billingConfig,
+            getDatabyQuery,
+            MongoDB_2,
+            CurrentDate,
+            IS_TEST_MODE,
+            calculateTrialDays
+          } = await import("../lib/billing.server");
+          
+          const body = JSON.parse(formValue.get("body"));
+          const { name, planObject, test, price, active, returnPath } = body;
+
+          const storePlanQuery = {
+            query: `query CheckStorePlan {
+              shop {
+                plan {
+                  partnerDevelopment
+                  publicDisplayName 
+                }
+              }
+            }`
+          };
+          const storePlanResult = await getDatabyQuery(session, storePlanQuery);
+          const isDevelopment = storePlanResult.data?.shop?.plan?.partnerDevelopment || false;
+
+          const trialDays = await calculateTrialDays(session.shop, planObject.trialDays || 14);
+          const baseUrl = `https://admin.shopify.com/store/${session.shop.split(".myshopify.com")[0]}/apps/${process.env.SHOPIFY_API_KEY}`;
+
+          const createBilling = {
+            query: `mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $trialDays: Int,$test:Boolean) {
+            appSubscriptionCreate(name: $name, returnUrl: $returnUrl, lineItems: $lineItems, trialDays: $trialDays,test:$test) {
+              userErrors { field message }
+              appSubscription { id }
+              confirmationUrl
+            }
+          }`,
+            variables: {
+              name: name,
+              returnUrl: `${baseUrl}${returnPath}`,
+              test: isDevelopment ? true : (IS_TEST_MODE || test),
+              trialDays: trialDays,
+              lineItems: [{
+                plan: {
+                  appRecurringPricingDetails: {
+                    price: { amount: Number(price), currencyCode: "USD" },
+                    interval: active == "Yearly" ? 'ANNUAL' : 'EVERY_30_DAYS'
+                  }
+                }
+              }]
+            }
+          };
+
+          const createBillingResult = await getDatabyQuery(session, createBilling);
+          const dataResult = createBillingResult.data;
+
+          if (dataResult?.appSubscriptionCreate?.userErrors?.length > 0) {
+            return { data: { error: dataResult.appSubscriptionCreate.userErrors[0].message }, status: 400 };
+          }
+
+          const planStorage = {
+            shop_name: session.shop,
+            ...planObject,
+            plan_date: CurrentDate(),
+            status: "pending_approval",
+            active: active,
+            is_development_store: isDevelopment,
+            shop_plan: storePlanResult.data?.shop?.plan?.publicDisplayName
+          };
+
+          await MongoDB_2(planStorage, "billing_plan");
+          return { data: { confirmationUrl: dataResult.appSubscriptionCreate.confirmationUrl }, status: 200 };
+        }
+
         default:
           break;
         }

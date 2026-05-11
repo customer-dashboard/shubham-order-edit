@@ -2,7 +2,7 @@
 
 client_id = "c86ec57da9db212c97945e189650ae77"
 name = "Order Editing - MT"
-application_url = "https://example.com"
+application_url = "https://order-edit.fly.dev"
 embedded = true
 
 
@@ -13,7 +13,7 @@ embedded_app_direct_api_access = true
 
 
 [webhooks]
-api_version = "2026-07"
+api_version = "2026-04"
 
   [[webhooks.subscriptions]]
   topics = [ "app/uninstalled" ]
@@ -28,7 +28,11 @@ api_version = "2026-07"
 scopes = "customer_read_orders,read_customers,read_locales,read_themes,write_customers,write_order_edits,write_orders,write_products,write_themes"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [
+  "https://order-edit.fly.dev/auth/callback",
+  "https://order-edit.fly.dev/auth/patch",
+  "https://order-edit.fly.dev/auth/login"
+]
 
 [product.metafields.app.demo_info]
 type = "single_line_text_field"

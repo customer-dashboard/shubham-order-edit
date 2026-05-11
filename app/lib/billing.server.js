@@ -1,7 +1,7 @@
 import { BillingInterval } from "@shopify/shopify-api";
 import { db, activities as activitiesCol } from "../mongodb.server";
 
-export const IS_TEST_MODE = true;
+export const IS_TEST_MODE = process.env.NODE_ENV !== "production";
 
 export const billingConfig = {
 
@@ -57,7 +57,7 @@ export const billingConfig = {
 
 export async function getDatabyQuery(session, data) {
     const { shop, accessToken } = session;
-    const endpoint = `https://${shop}/admin/api/2024-10/graphql.json`;
+    const endpoint = `https://${shop}/admin/api/2026-04/graphql.json`;
   
     try {
       const response = await fetch(endpoint, {

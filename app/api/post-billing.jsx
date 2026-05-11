@@ -89,6 +89,8 @@ export async function action({ request }) {
 
   const createBillingResult = await getDatabyQuery(session, createBilling);
   const dataResult = createBillingResult.data;
+  
+  console.log("[Billing] Create Subscription Result:", JSON.stringify(createBillingResult, null, 2));
 
   if (dataResult?.appSubscriptionCreate?.userErrors?.length > 0) {
     return { error: dataResult.appSubscriptionCreate.userErrors[0].message, status: 400 };

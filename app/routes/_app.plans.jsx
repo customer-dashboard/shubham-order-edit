@@ -59,9 +59,11 @@ export const PricingCard = ({
                         ))}
                     </s-stack>
 
-                    <div style={{ marginTop: 'auto', textAlign: 'right' }}>
-                        <s-button {...button.props}>{button.content}</s-button>
-                    </div>
+                    <s-stack direction="block" gap="base" style={{ marginTop: 'auto', paddingTop: '10px' }}>
+                        <s-button {...button.props}>
+                            {button.content}
+                        </s-button>
+                    </s-stack>
                 </s-stack>
             </s-section>
         </div>
@@ -74,7 +76,7 @@ export const PLANS = [
         plan_id: "plan_starter_v1",
         edit_limit: 50,
         title: "Starter",
-        description: "Everything you need to start",
+        description: "Best for new stores",
         monthlyPrice: "$8",
         monthlyPriceValue: 8.00,
         shopifyHandle: "starter",
@@ -121,84 +123,75 @@ export const PLANS = [
         shopifyHandle: "enterprise",
         features: [
             "Unlimited Order Edits",
-            "Address & Phone Editing",
-            "Order Cancellation",
-            "Item Quantity & Swaps",
-            "Add Products to Order",
-            "Activity Logs & History",
-            "Time & Tag Restrictions",
-            "Invoice Downloads"
+            "Priority Support",
+            "Custom Feature Requests",
+            "Dedicated Account Manager",
+            "Advanced Analytics",
+            "Bulk Order Editing",
+            "Multi-Store Support",
+            "Early Access to Features"
         ]
     }
 ];
 
 export default function PlansPage() {
     const { config } = useOutletContext();
-    const [planloading, setplanloading] = useState(false);
-    const [planinfo, setplaninfo] = useState({});
     const [loading, setLoading] = useState("");
-
-    const queryParameters = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : "");
-    const myappplan = queryParameters.get("myappplan");
-    const customplan = queryParameters.get("customplan");
-
-    let test = !!myappplan;
+    const [planinfo, setplaninfo] = useState(null);
+    const [planloading, setplanloading] = useState(true);
 
     const postPayment = async (plan) => {
         setLoading(plan.id);
+        const test = true;
         let price = plan.monthlyPriceValue;
-        let iscustomplan = false;
-        let onboarding = false;
 
-        if (customplan) {
-            price = Number(customplan);
-            iscustomplan = true;
-        }
+        const formData = new FormData();
+        formData.append("_action", "POST_BILLING");
+        formData.append("body", JSON.stringify({
+            name: plan.shopifyHandle,
+            planObject: plan,
+            test: test,
+            price: price,
+            active: "Monthly",
+            returnPath: window.location.pathname
+        }));
 
         try {
-            const response = await fetch('/api/post-billing', {
+            const response = await fetch('/app/fetch-data', {
                 method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    name: plan.shopifyHandle,
-                    planObject: plan,
-                    shop: typeof shopify !== 'undefined' ? shopify.config.shop : "",
-                    test: test,
-                    price: price,
-                    active: "Monthly",
-                    iscustomplan,
-                    onboarding,
-                    returnPath: window.location.pathname
-                })
+                body: formData
             });
-            const result = await response.json();
+            const res = await response.json();
+            const result = res.data;
 
             if (plan.id === "free") {
                 window.location.reload();
-            } else if (result.data) {
-                open(result.data, "_top");
+            } else if (result.confirmationUrl) {
+                open(result.confirmationUrl, "_top");
             } else if (result.error) {
                 if (typeof shopify !== 'undefined') shopify.toast.show(result.error, { isError: true });
                 setLoading("");
             }
-        } catch (err) {
-            console.error("Payment error:", err);
+        } catch (error) {
+            console.error("Payment error:", error);
             setLoading("");
         }
     };
 
     useEffect(() => {
         if (typeof shopify !== 'undefined') shopify.loading(true);
-        shopify.loading(true);
         setplanloading(true);
 
-        fetch("/api/get-billing")
+        const formData = new FormData();
+        formData.append("_action", "GET_BILLING");
+
+        fetch("/app/fetch-data", {
+            method: "POST",
+            body: formData
+        })
             .then((res) => res.json())
-            .then(data => {
-                setplaninfo(data);
+            .then(res => {
+                setplaninfo(res.data);
             })
             .catch(err => console.error("Fetch billing error:", err))
             .finally(() => {

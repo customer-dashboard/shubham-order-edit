@@ -1,10 +1,14 @@
 import dns from "node:dns";
 
-// Force Node.js to use Google's DNS servers to resolve MongoDB SRV records
-// This fixes querySrv ECONNREFUSED errors in some environments
-dns.setServers(['8.8.8.8', '8.8.4.4']);
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
+try {
+  // Force Node.js to use Google's DNS servers to resolve MongoDB SRV records
+  // This fixes querySrv ECONNREFUSED errors in some environments
+  dns.setServers(['8.8.8.8', '8.8.4.4']);
+  if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+  }
+} catch (error) {
+  console.warn("Could not set custom DNS servers, using system defaults:", error.message);
 }
 
 import {
