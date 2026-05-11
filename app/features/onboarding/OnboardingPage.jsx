@@ -401,23 +401,28 @@ export default function OnboardingPage({ isReset }) {
 
             {/* NAVIGATION */}
             <s-box paddingBlock="base" paddingInline="base" borderTop="base">
-              <s-stack direction="inline" justifyContent="space-between">
+              <s-stack direction="inline" justifyContent="space-between" alignItems="center">
                 {currentStep > 0 ? (
                   <s-button onClick={() => nav(-1)}>Back</s-button>
                 ) : (
                   <s-box />
                 )}
 
-                {currentStep < steps.length - 1 && (
-                  <s-button
-                    variant="primary"
-                    onClick={() => nav(1)}
-                    loading={isSaving}
-                    disabled={(currentStep === 2 && !isExtensionActive) || currentStep === 3}
-                  >
-                    {currentStep === 0 ? "Let's Start →" : "Save & Continue →"}
-                  </s-button>
-                )}
+                <s-stack direction="inline" gap="small">
+                  {currentStep === 2 && (
+                    <s-button onClick={() => nav(1)}>Skip for now</s-button>
+                  )}
+                  {currentStep < steps.length - 1 && (
+                    <s-button
+                      variant="primary"
+                      onClick={() => nav(1)}
+                      loading={isSaving}
+                      disabled={(currentStep === 2 && !isExtensionActive) || currentStep === 3}
+                    >
+                      {currentStep === 0 ? "Let's Start →" : "Save & Continue →"}
+                    </s-button>
+                  )}
+                </s-stack>
               </s-stack>
             </s-box>
 
