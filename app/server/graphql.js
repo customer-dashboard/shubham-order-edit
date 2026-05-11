@@ -46,7 +46,7 @@ export const getAppStatus = async (session, data) => {
       const themeId = theme.node.id.split("/").pop();
 
       const response = await fetch(
-        `https://${shop}/admin/api/2024-10/themes/${themeId}/assets.json?asset[key]=config/settings_data.json`,
+        `https://${shop}/admin/api/2026-04/themes/${themeId}/assets.json?asset[key]=config/settings_data.json`,
         {
           method: "GET",
           headers: {
@@ -96,7 +96,7 @@ export const getAppStatus = async (session, data) => {
 };
 
 export async function getShopId(shop, accessToken) {
-  const endpoint = `https://${shop}/admin/api/2023-10/graphql.json`;
+  const endpoint = `https://${shop}/admin/api/2026-04/graphql.json`;
   const query = `
   {
     shop {
