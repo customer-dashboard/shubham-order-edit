@@ -62,11 +62,9 @@ export const getAppStatus = async (session, data) => {
         if (text) {
           json = JSON.parse(text);
         } else {
-          // console.warn(`⚠️ Empty response for theme ${themeId}`);
           continue;
         }
       } catch (err) {
-        console.warn(`❌ Failed to parse JSON response for theme ${themeId}:`, err);
         continue;
       }
 
@@ -77,17 +75,13 @@ export const getAppStatus = async (session, data) => {
           const blocks = themeData?.current?.blocks || {};
           const block = blocks[app_block_id] || { disabled: true };
           theme.node.embed_status_disabled = block.disabled;
-          // console.log("✅ Processed theme:", theme.node.name);
           array.push(theme);
         } catch (parseError) {
-          console.warn(`❌ Invalid settings_data.json in theme ${themeId}:`, parseError);
         }
       } else {
-        console.warn(`⚠️ No settings_data.json found for theme ${themeId}`);
       }
     }
 
-    // console.log("🎉 Final Array:", array);
     return array;
   } catch (error) {
     console.error("💥 Error in getAppStatus:", error);
@@ -163,7 +157,6 @@ export async function postMetafileds(admin, formValue, shop, accessToken) {
     const response = await metafileds.json();
     return response;
   } catch (error) {
-    // console.error("Error in setTranslation:", error);
     // throw error;
   }
 }
@@ -752,7 +745,6 @@ import { logActivityToDB } from "../mongodb.server";
 
 export async function logActivity(admin, shop, activity) {
   try {
-    console.log("Activity: Logging to MongoDB...", activity.type);
     // 1. Log to DB
     await logActivityToDB(shop, activity);
 

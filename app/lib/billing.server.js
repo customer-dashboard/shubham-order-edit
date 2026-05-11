@@ -92,7 +92,6 @@ export async function GetMongoDB(shop, collectionName) {
   try {
     const collection = db.collection(collectionName);
     const result = await collection.findOne({ shop_name: shop });
-    console.log(`[MongoDB] Fetching from ${collectionName} for ${shop}:`, result ? "Found" : "Not Found");
     return result ? JSON.stringify(result) : JSON.stringify("");
   } catch (error) {
     console.error(`Error fetching from MongoDB ${collectionName}:`, error);
@@ -112,7 +111,6 @@ export async function MongoDB_2(data, collectionName) {
       { $set: updateData },
       { upsert: true }
     );
-    console.log(`[MongoDB] Saved to ${collectionName} for ${data.shop_name}:`, result.upsertedCount > 0 ? "Upserted" : "Updated");
   } catch (error) {
     console.error(`Error saving to MongoDB ${collectionName}:`, error);
   }
@@ -125,7 +123,6 @@ export async function cancelBillingPlan(shop) {
       { shop_name: shop },
       { $set: { status: "cancelled", last_cancelled_at: new Date().toISOString() } }
     );
-    console.log(`[MongoDB] Set status to cancelled for ${shop}`);
     
     // Also stop trial tracking if it was active
     await stopTrialTracking(shop);
@@ -145,7 +142,6 @@ export async function DeleteMongoDB(shop, collectionName) {
 
 export async function confirmBillingPlan(session, chargeId) {
   const { shop } = session;
-  console.log(`[Billing] Confirming plan for ${shop} with chargeId: ${chargeId}`);
   const fullId = chargeId.includes("gid://") ? chargeId : `gid://shopify/AppSubscription/${chargeId}`;
   
   const query = {
@@ -172,7 +168,6 @@ export async function confirmBillingPlan(session, chargeId) {
 
   const result = await getDatabyQuery(session, query);
   const subscription = result.data?.node;
-  console.log(`[Billing] Subscription status for ${shop}:`, subscription?.status || "Not Found");
 
   if (subscription && subscription.status === 'ACTIVE') {
     // 1. Update MongoDB
@@ -280,14 +275,12 @@ export async function calculateTrialDays(shop, planTrialLimit = 14) {
     trialData = trialData && trialData !== '""' ? JSON.parse(trialData) : null;
 
     if (!trialData) {
-      console.log(`[Trial] No trial record for ${shop}. Full ${planTrialLimit} days.`);
       return planTrialLimit;
     }
 
     const usedDays = trialData.days_used || 0;
     const remaining = planTrialLimit - usedDays;
     const result = remaining > 0 ? Math.floor(remaining) : 0;
-    console.log(`[Trial] ${shop} has used ${usedDays.toFixed(2)} days. Remaining: ${result}`);
     return result;
   } catch (error) {
     console.error("Error in calculateTrialDays:", error);
@@ -319,7 +312,6 @@ export async function startTrialTracking(shop) {
         trial_started: true
       }, "trial_management");
     }
-    console.log(`[Trial] Started tracking for ${shop}`);
   } catch (error) {
     console.error("Error in startTrialTracking:", error);
   }
@@ -342,7 +334,6 @@ export async function stopTrialTracking(shop) {
         last_uninstalled_at: now.toISOString(),
         status: "uninstalled"
       }, "trial_management");
-      console.log(`[Trial] Stopped tracking for ${shop}. Added ${diffDays.toFixed(2)} days to usage.`);
     } else if (trialData) {
       await MongoDB_2({
         ...trialData,
@@ -398,7 +389,6 @@ export async function syncUsageStatus(session, admin) {
     const limitReached = currentCount >= limit;
 
     await updateUsageMetafield(admin, session, limitReached);
-    console.log(`[Usage] ${shop}: ${currentCount}/${limit}. Limit Reached: ${limitReached}`);
   } catch (error) {
     console.error("Error syncing usage status:", error);
   }

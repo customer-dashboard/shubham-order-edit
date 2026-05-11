@@ -43,7 +43,6 @@ export async function action({ request }) {
                 console.error("Invalid JSON in allthemes:", e);
             }
             const app_status = await getAppStatus(session,allthemesEC);
-            // console.log("App status", app_status);
             return {app_status,status:200}
         case "GET_DASHBOARD_METRICS":
             // Fetch Metafield Directly for Dashboard (Metafield-driven)
@@ -312,8 +311,6 @@ export async function action({ request }) {
 //     var data = await getShopData(admin,session);
 //     let { shop, accessToken } = session;
 //     const CustomerCount = await getCustomersData(shop, accessToken,'count');
-//     // console.log("CustomerCount",CustomerCount);
-//     // console.log("data",data.data.shop);
 //     data=data.data.shop;
 //     const resData = {
 //       shop: session.shop,
@@ -325,7 +322,6 @@ export async function action({ request }) {
 //       status: 1,
 //     }
 //     const result = await MongoDB(resData,"shop_info");
-//     // console.log("result", result);
 //     return resData;
 //   }
 

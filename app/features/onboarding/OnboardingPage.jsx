@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useOutletContext, useNavigate } from "react-router";
+import { useOutletContext, useNavigate, useSearchParams } from "react-router";
 import { PLANS, PricingCard } from "../../routes/_app.plans";
 
 export default function OnboardingPage({ isReset }) {
@@ -19,7 +19,13 @@ export default function OnboardingPage({ isReset }) {
   ];
 
   // If testing reset, start from 0, otherwise use saved step
-  const [activeStep, setActiveStep] = useState(isReset ? 0 : (config.onboarding?.step ?? 0));
+  // Fallback: If we are returning from billing (?onboarding_complete=true), force step 4
+  const [searchParams] = useSearchParams();
+  const isReturningFromBilling = searchParams.get("onboarding_complete") === "true";
+  
+  const [activeStep, setActiveStep] = useState(
+    isReset ? 0 : (isReturningFromBilling ? 4 : (config.onboarding?.step ?? 0))
+  );
   const currentStep = Math.min(activeStep, steps.length - 1);
 
   const checkExtensionStatus = async () => {
@@ -119,35 +125,36 @@ export default function OnboardingPage({ isReset }) {
     setLoadingPlan(plan.id);
     let price = plan.monthlyPriceValue;
 
-    try {
-      const response = await fetch('/api/post-billing', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          name: plan.shopifyHandle,
-          planObject: plan,
-          shop: typeof shopify !== 'undefined' ? shopify.config.shop : "",
-          test: true,
-          price: price,
-          active: "Monthly",
-          returnPath: `/`
-        })
-      });
-      const result = await response.json();
+    const formData = new FormData();
+    formData.append("_action", "POST_BILLING");
+    formData.append("body", JSON.stringify({
+      name: plan.shopifyHandle,
+      planObject: plan,
+      test: true,
+      price: price,
+      active: "Monthly",
+      returnPath: "/?onboarding_complete=true"
+    }));
 
-      if (result.data) {
-        // Pre-emptively set the next step to "Complete" so they land there after returning from Shopify
+    try {
+      const response = await fetch('/app/fetch-data', {
+        method: 'POST',
+        body: formData
+      });
+      const res = await response.json();
+      const result = res.data;
+
+      if (result.confirmationUrl) {
+        // Ensure the next step is "Complete" (4) so they land there after returning from Shopify
         const updated = {
           ...config,
           onboarding: { ...config.onboarding, step: 4 },
         };
         setConfig(updated);
-        saveOnboardingState(updated);
+        // CRITICAL: Await the save before redirecting to ensure database is updated
+        await saveOnboardingState(updated);
 
-        open(result.data, "_top");
+        open(result.confirmationUrl, "_top");
       } else if (result.error) {
         if (typeof shopify !== 'undefined') shopify.toast.show(result.error, { isError: true });
         setLoadingPlan("");

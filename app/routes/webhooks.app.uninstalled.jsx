@@ -6,14 +6,12 @@ export const action = async ({ request }) => {
   const { cancelBillingPlan, stopTrialTracking } = await import("../lib/billing.server");
   const { shop, session, topic, payload } = await authenticate.webhook(request);
 
-  console.log(`Received ${topic} webhook for ${shop}`);
 
   // 1. Mark subscription as uninstalled and log activity in MongoDB
   try {
     await logUninstallation(shop, payload);
     await cancelBillingPlan(shop);
     await stopTrialTracking(shop);
-    console.log(`Logged uninstallation and cleared billing/trial for ${shop}`);
   } catch (e) {
     console.error(`Failed to log uninstallation for ${shop}:`, e);
   }
